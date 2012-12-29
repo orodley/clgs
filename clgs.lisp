@@ -69,21 +69,31 @@
   (slot-value gs-var 'value))
 
 
-(defun priority (type)
-  "Return coercion priority for a type (higher values take precedence)"
-  (etypecase type
+(defun priority (object)
+  "Return coercion priority for OBJECT (higher values take precedence)"
+  (etypecase object
     (gs-integer 1)
     (gs-array   2)
     (gs-string  3)
     (gs-block   4)))
 
 (defun type-of-priority (priority)
-  "Return type mapped to a particular priority"
+  "Return the type mapped to a particular priority"
   (ecase priority
     (1 'gs-integer)
     (2 'gs-array)
     (3 'gs-string)
     (4 'gs-block)))
+
+(defun make-gs-object (object)
+  "Return an appropriate golfscript object containing the value in OBJECT.
+  Lists get converted into GS-ARRAYs. Strings will always get turned into 
+  GS-STRINGs - never blocks"
+  (etypecase object
+    (integer (make-gs-integer object))
+    (string  (make-gs-string  object))  
+    (vector  (make-gs-array   object))
+    (list    (make-gs-array   (vector object)))))
 
 ;;; Parsing
 
@@ -118,6 +128,9 @@
                 '(#\' #\" #\{ #\-))
         (digit-char-p first-char))))
 
+(defun gs-comment-p (token-string)
+  (char-equal (char token-string 0) #\#))
+
 (defun execute-gs-program (gs-code-string &optional stack-values)
   "Execute GS-CODE-STRING as golfscript code, optionally providing starting stack values.
   Return value of stack on completion"
@@ -135,8 +148,8 @@
           ;; OPTIMIZATION: Loads of duplication here
           ((get-from-var-table (intern token) *variable-table*)
            (funcall (get-from-var-table (intern token) *variable-table*)))
-          ((string-equal token " ")
-           ())
+          ((string-equal token " "))
+          ((gs-comment-p token))
           (t (error "Unrecognized token ~S" token))))) 
 
 (defun match-arg-type (arg-combinations)
@@ -238,12 +251,36 @@
                  var-list)
      ,@body))
 
+;;; Builtin functions
+(define-gs-function (~)
+  ((gs-integer)
+   ;; Bitwise not
+   (pop-into (a)
+     (stack-push (make-gs-integer
+                   (lognot a))))) 
+   ((gs-string) 
+    ;; Eval
+    (pop-into (a)
+      (execute-gs-string a))) 
+   ((gs-block)
+    (pop-into (a)
+      (execute-gs-string a)))
+   ((gs-array)
+    ;; Dump items
+    (pop-into (a)
+      (map nil
+           (lambda (object)
+             (stack-push (make-gs-object object)))
+           a))))
+
 (define-gs-function (+ 2) 
   ((gs-integer)
+   ;; Add
    (pop-into (a b)
      (stack-push (make-gs-integer
                    (+ b a)))))
   ((gs-string)
+   ;; Concatenate
    (pop-into (a b)
      (stack-push (make-gs-string
                    (concatenate 'string b a)))))
