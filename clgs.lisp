@@ -9,9 +9,12 @@
 (defvar *stack-mark* 0
   "The [ function uses this to mark stack size, and ] slices back to it")
 
-(defun stack-push (object)
-  "Push OBJECT onto the golfscript stack."
-  (push object *stack*))
+(defun stack-push (object &rest more-objects)
+  "Push all args onto the golfscript stack."
+  (push object *stack*)
+  (when more-objects
+    (loop for object in more-objects do
+          (push object *stack*))))
 
 (defun stack-pop  ()
   "Pop the top item off the golfscript stack and return it."
@@ -21,6 +24,10 @@
   "Return the first DEPTH elements from the top of the golfscript
   stack, without modifiying it."
   (subseq *stack* 0 depth))
+
+(defun stack-elt (index)
+  "Return the element at position INDEX in the stack"
+  (elt *stack* index))
 
 (defun set-stack (stack-values)
   "Remove all current stack values and set stack to the values in STACK-VALUES"
@@ -135,12 +142,12 @@
   (char-equal (char token-string 0) #\#))
 
 (defun execute-gs-program (gs-code-string &optional stack-values)
-  "Execute GS-CODE-STRING as golfscript code, optionally providing starting stack values.
-  Return value of stack on completion"
+  "Execute GS-CODE-STRING as golfscript code, optionally providing
+  starting stack values. Return value of stack on completion"
   (set-stack stack-values)
   (reset-var-table)
   (execute-gs-string gs-code-string)
-  (mapcar #'gs-var-value *stack*)) 
+  (reverse *stack*)) 
 
 (defun execute-gs-string (gs-code-string)
   "Execute string as golfscript code. Doesn't reset stack or variable table"
@@ -150,7 +157,7 @@
            (stack-push (read-gs-literal token)))
           ;; OPTIMIZATION: Loads of duplication here
           ((get-from-var-table (intern token) *variable-table*)
-           (funcall (get-from-var-table (intern token) *variable-table*)))
+           (call-gs-fun (intern token)))
           ((string-equal token " "))
           ((gs-comment-p token))
           (t (error "Unrecognized token ~S" token))))) 
@@ -202,7 +209,7 @@
                          (reduce (lambda (a b)
                                    (concatenate 'string a " " b)) 
                                  (map 'list (lambda (x)
-                                              (slot-value (coerce-gs-type x 'gs-string)
+                                              (slot-value (coerce-gs-object x 'gs-string)
                                                           'value))
                                       value)
                            :from-end t :initial-value "")))))
@@ -210,7 +217,8 @@
           (ecase type
             (gs-block (make-gs-block (concatenate 'string value " ")))))))))
 
-(defmacro define-gs-function ((name &optional (coerce-n 0)) &body arg-cases)
+;; TODO: Add arg number checking for individual arg cases
+(defmacro define-gs-function ((name &key (coerce 0) (require 0)) &body arg-cases)
   "Define a builtin function and insert it into *builtins*.
   Each case defines a different function to perform depending
   on the types of the arguments."
@@ -222,17 +230,24 @@
                              gs-string
                              gs-block
                              t))
-        (error "In definition of golfscript function \"~S\": ~S is not a valid golfscript type"
+        (error "In definition of golfscript function \"~S\": ~S is not ~
+               a valid golfscript type"
                name type))))
   `(add-to-var-table (quote ,name)
                      (lambda ()
                        ;; Coerce args if necessary
-                       ,(when (plusp coerce-n)
+                       ,(when (plusp coerce)
                           `(loop for coerced-arg in 
                                  (reverse (coerce-args
-                                            (loop repeat ,coerce-n collecting
+                                            (loop repeat ,coerce collecting
                                                   (stack-pop))))
                                  do (stack-push coerced-arg)))
+                       ,(when (plusp require)
+                          `(unless (>= (length *stack*)
+                                       ,require)
+                             (error "Not enough values on stack for function ~S: ~
+                                    expected >=~D, got ~D"
+                                    (quote ,name) ,require (length *stack*))))
                        (cond
                          ;; Set up cond clauses for each arg type combination
                          ,@(mapcar (lambda (arg-case)
@@ -244,7 +259,8 @@
                                          ,@(cdr arg-case)))) 
                                    arg-cases)
                          ;; Fallen through all possible combinations; invalid function call
-                         (t (error "~S called with invalid argument types; didn't match any of expected cases: ~S"
+                         (t (error "~S called with invalid argument types; didn't ~
+                                   match any of expected cases: ~S"
                                    (quote ,name)
                                    (quote ,(mapcar #'car arg-cases))))))
                      *builtins*))
@@ -257,8 +273,20 @@
                  var-list)
      ,@body))
 
+(defmacro pop-into* (var-list &body body)
+  "Pop the top values of the stack into the variables in
+  VAR-LIST in order, then execute body"
+  `(let ,(mapcar (lambda (var)
+                   `(,var (stack-pop)))
+                 var-list)
+     ,@body))
+
+(defun call-gs-fun (fun-symbol)
+  "Call the function denoted by FUN-SYMBOL"
+  (funcall (get-from-var-table fun-symbol *variable-table*)))
+
 ;;; Builtin functions
-(define-gs-function (~)
+(define-gs-function (~ :require 1)
   ((gs-integer)
    ;; Bitwise not
    (pop-into (a)
@@ -277,10 +305,11 @@
      (map nil
           (lambda (object)
             (stack-push object))
-          (nreverse a)))))
+          a))))
 
-(define-gs-function (!)
+(define-gs-function (! :require 1)
   ((t)
+   ;; Boolean NOT
    (pop-into (a)
      (stack-push
        (make-gs-integer
@@ -289,7 +318,32 @@
            1
            0))))))
 
-(define-gs-function (+ 2) 
+(define-gs-function (@ :require 3)
+  ((t)
+   ;; Rotate top 3 stack elements
+   ;; 2 3 4 => 3 4 2
+   (pop-into* (a b c)
+     (stack-push b a c))))
+
+(define-gs-function ($)
+  ((gs-integer)
+   ;; nth element in stack
+   (pop-into (a)
+     (stack-push
+       (stack-elt a)))) 
+  ((gs-string)
+   ;; Sort 
+   (pop-into (a) 
+   (stack-push
+     (make-gs-string
+       (sort a #'char<)))))
+  ((gs-block gs-string)
+   (pop-into (key-block string)
+     (stack-push
+       (make-gs-string
+         ())))))
+
+(define-gs-function (+ :coerce 2) 
   ((gs-integer)
    ;; Add
    (pop-into (a b)
@@ -325,3 +379,34 @@
                                 *stack-mark*)
                       collecting (stack-pop))))))))
 
+(define-gs-function (|,| :require 1)
+  ((gs-integer)
+   ;; Range
+   (pop-into (a)
+     (let ((range-vector (make-array a)))
+       (loop for n below a do
+             (setf (elt range-vector n)
+                   (make-gs-integer n)))
+       (stack-push (make-gs-array range-vector)))))
+  ((gs-array)
+   ;; Array size
+   (pop-into (a)
+     (stack-push (make-gs-integer
+                   (length a)))))
+  ((gs-block gs-array)
+   ;; Filter
+   (pop-into (predicate array)
+     (let ((predicate
+             (concatenate 'string predicate "!"))
+           (filtered-array
+             (make-array 0 :fill-pointer t)))
+       (map nil
+            (lambda (object)
+              (stack-push object))
+            array) 
+       (loop repeat (length array) do
+             (execute-gs-string predicate)
+             (if (zerop (gs-var-value (stack-elt 0)))
+               (vector-push-extend (stack-pop) filtered-array)      
+               (stack-pop)))
+       (stack-push (make-gs-array filtered-array))))))
