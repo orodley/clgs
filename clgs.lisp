@@ -118,12 +118,16 @@
                 '(#\' #\" #\{ #\-))
         (digit-char-p first-char))))
 
-(defun execute-gs-string (gs-code-string &optional stack-values)
+(defun execute-gs-program (gs-code-string &optional stack-values)
   "Execute GS-CODE-STRING as golfscript code, optionally providing starting stack values.
   Return value of stack on completion"
   (set-stack stack-values)
   (reset-var-table)
-  ()
+  (execute-gs-string gs-code-string)
+  (mapcar #'gs-var-value *stack*)) 
+
+(defun execute-gs-string (gs-code-string)
+  "Execute string as golfscript code. Doesn't reset stack or variable table"
   (loop for token in (tokenize gs-code-string) do
         (cond
           ((gs-literal-p token)
@@ -133,8 +137,7 @@
            (funcall (get-from-var-table (intern token) *variable-table*)))
           ((string-equal token " ")
            ())
-          (t (error "Unrecognized token ~S" token))))
-  *stack*)
+          (t (error "Unrecognized token ~S" token))))) 
 
 (defun match-arg-type (arg-combinations)
   "Inspect the stack and return the first matching argument combination.
@@ -227,16 +230,28 @@
                                    (quote ,(mapcar #'car arg-cases))))))
                      *builtins*))
 
-#+nil
-(define-gs-function ~ (a b)
-                    )
+(defmacro pop-into (var-list &body body)
+  "Pop the GS-VAR-VALUEs of the top values of the stack into
+  the variables in VAR-LIST in order, then execute body"
+  `(let ,(mapcar (lambda (var)
+                   `(,var (gs-var-value (stack-pop))))
+                 var-list)
+     ,@body))
 
 (define-gs-function (+ 2) 
   ((gs-integer)
-   (let ((a (gs-var-value (stack-pop)))
-         (b (gs-var-value (stack-pop))))
+   (pop-into (a b)
      (stack-push (make-gs-integer
-                   (+ a b)))))
-  ((gs-string) ())
-  ((gs-array) ())
-  ((gs-block) ()))
+                   (+ b a)))))
+  ((gs-string)
+   (pop-into (a b)
+     (stack-push (make-gs-string
+                   (concatenate 'string b a)))))
+  ((gs-array)
+   (pop-into (a b)
+     (stack-push (make-gs-array
+                   (concatenate 'vector b a)))))
+  ((gs-block)
+   (pop-into (a b)
+     (stack-push (make-gs-block
+                   (concatenate 'string b a))))))
