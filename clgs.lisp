@@ -6,6 +6,9 @@
 (defvar *stack* ()
   "Main golfscript stack.")
 
+(defvar *stack-mark* 0
+  "The [ function uses this to mark stack size, and ] slices back to it")
+
 (defun stack-push (object)
   "Push OBJECT onto the golfscript stack."
   (push object *stack*))
@@ -217,7 +220,8 @@
       (unless (member type '(gs-integer
                              gs-array
                              gs-string
-                             gs-block))
+                             gs-block
+                             t))
         (error "In definition of golfscript function \"~S\": ~S is not a valid golfscript type"
                name type))))
   `(add-to-var-table (quote ,name)
@@ -232,10 +236,12 @@
                        (cond
                          ;; Set up cond clauses for each arg type combination
                          ,@(mapcar (lambda (arg-case)
-                                     `((equal (mapcar #'type-of
-                                                      (stack-peek ,(length (car arg-case))))
-                                              (quote ,(car arg-case)))
-                                       ,@(cdr arg-case))) 
+                                     (if (equal (car arg-case) '(t))
+                                       `(t ,@(cdr arg-case))
+                                       `((equal (mapcar #'type-of
+                                                        (stack-peek ,(length (car arg-case))))
+                                                (quote ,(car arg-case)))
+                                         ,@(cdr arg-case)))) 
                                    arg-cases)
                          ;; Fallen through all possible combinations; invalid function call
                          (t (error "~S called with invalid argument types; didn't match any of expected cases: ~S"
@@ -258,20 +264,30 @@
    (pop-into (a)
      (stack-push (make-gs-integer
                    (lognot a))))) 
-   ((gs-string) 
-    ;; Eval
-    (pop-into (a)
-      (execute-gs-string a))) 
-   ((gs-block)
-    (pop-into (a)
-      (execute-gs-string a)))
-   ((gs-array)
-    ;; Dump items
-    (pop-into (a)
-      (map nil
-           (lambda (object)
-             (stack-push (make-gs-object object)))
-           a))))
+  ((gs-string) 
+   ;; Eval
+   (pop-into (a)
+     (execute-gs-string a))) 
+  ((gs-block)
+   (pop-into (a)
+     (execute-gs-string a)))
+  ((gs-array)
+   ;; Dump items
+   (pop-into (a)
+     (map nil
+          (lambda (object)
+            (stack-push object))
+          (nreverse a)))))
+
+(define-gs-function (!)
+  ((t)
+   (pop-into (a)
+     (stack-push
+       (make-gs-integer
+         (if (member a '(0 #() "")
+                     :test #'equalp)
+           1
+           0))))))
 
 (define-gs-function (+ 2) 
   ((gs-integer)
@@ -292,3 +308,20 @@
    (pop-into (a b)
      (stack-push (make-gs-block
                    (concatenate 'string b a))))))
+
+(define-gs-function ([)
+  ((t)
+   ;; Mark stack size
+   (setf *stack-mark* (length *stack*))))
+
+(define-gs-function (])
+  ((t)
+   ;; Slice stack back to mark
+   (stack-push
+     (make-gs-array
+       (apply #'vector
+              (nreverse
+                (loop repeat (- (length *stack*)
+                                *stack-mark*)
+                      collecting (stack-pop))))))))
+
