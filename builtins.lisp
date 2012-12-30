@@ -47,7 +47,7 @@
                                    arg-cases)
                          ;; Fallen through all possible combinations; invalid function call
                          (t (error "~S called with invalid argument types; didn't ~
-                                   match any of expected cases: ~S"
+                                   match any expected cases:~%~S"
                                    (quote ,name)
                                    (quote ,(mapcar #'car arg-cases))))))
                      *builtins*))
@@ -71,6 +71,32 @@
 (defun call-gs-fun (fun-symbol)
   "Call the function denoted by FUN-SYMBOL"
   (funcall (get-from-var-table fun-symbol *variable-table*)))
+
+(defun split-sequence (sequence delimiter)
+  "Return a vector consisting of SEQUENCE split along DELIMITER"
+  ;; TODO: Fix case where delimiter is at the end:
+  ;; (SPLIT-SEQUENCE "a|b|" "|") currently returns #("a" "b|")
+  (let ((delim-length (length delimiter))
+        (sequence-length (length sequence)))
+    (apply #'vector
+           (loop with index = 0
+                 with subseq-start = 0
+                 while (< index (- sequence-length
+                                   delim-length))
+                   if (equalp delimiter
+                              (subseq sequence index
+                                      (+ index delim-length)))
+                     collect (subseq sequence subseq-start index)
+                     and do (progn 
+                              (incf index delim-length)
+                              (setf subseq-start index))
+                   else
+                     do (incf index 1)
+                   when (>= index
+                            (- sequence-length
+                               delim-length))
+                     collect (subseq sequence subseq-start
+                                     sequence-length)))))
 
 ;;; Builtin functions
 (define-gs-function (~ :require 1)
@@ -96,7 +122,7 @@
 
 (define-gs-function (! :require 1)
   ((t)
-   ;; Boolean NOT
+   ;; Boolean NOT, with 0, [] and "" being false
    (pop-into (a)
      (stack-push
        (make-gs-integer
@@ -112,7 +138,7 @@
    (pop-into* (a b c)
      (stack-push b a c))))
 
-(define-gs-function ($)
+(define-gs-function ($ :require 1)
   ((gs-integer)
    ;; nth element in stack
    (pop-into (a)
@@ -125,6 +151,7 @@
      (make-gs-string
        (sort a #'char<)))))
   ((gs-block gs-string)
+   ;; Sort string by mapping, like (SORT STRING :KEY KEY-BLOCK)
    (pop-into (key-block string)
      (stack-push
        (make-gs-string
@@ -149,6 +176,79 @@
    (pop-into (a b)
      (stack-push (make-gs-block
                    (concatenate 'string b a))))))
+
+(define-gs-function (% :require 2)
+  ((gs-integer gs-integer)
+   ;; Modulus
+   (pop-into (a b)
+     (stack-push (make-gs-integer
+                   (mod b a)))))
+  ((gs-string gs-string)
+   ;; String split, with empty elements removed
+   (pop-into (delimiter string)
+     (stack-push
+       (make-gs-array
+         (remove ""
+                 (split-sequence string delimiter)
+                 :test #'string-equal)))))
+  ((gs-array gs-array)
+   ;; Array split, with empty elements removed
+   (pop-into (delimiter array)
+     (stack-push
+       (make-gs-array
+         (remove #()
+                 (split-sequence array delimiter)
+                 :test #'equalp))))) 
+  ((gs-integer gs-array)
+   ;; Select every nth element; like pythons [::n]
+   ;; Go from end if n is negative
+   (pop-into (n array)
+     (stack-push
+       (make-gs-array
+         (apply #'vector
+                (cond
+                  ((plusp n)
+                   (loop for index below (length array) by n
+                         collect (elt array index)))
+                  ((minusp n)
+                   (loop for index from (1- (length array)) downto 0 by (abs n)
+                         collect (elt array index)))
+                  (t (error "Zero slice value supplied to %"))))))))
+  ((gs-integer gs-string)
+   ;; TODO: Yucky code duplication
+   (pop-into (n array)
+     (stack-push
+       (make-gs-string
+         (coerce 
+           (cond
+             ((plusp n)
+              (loop for index below (length array) by n
+                    collect (elt array index)))
+             ((minusp n)
+              (loop for index from (1- (length array)) downto 0 by (abs n)
+                    collect (elt array index)))
+             (t (error "Zero slice value supplied to %")))
+           'string)))))
+  ((gs-block gs-array)
+   ;; Map
+   (pop-into (block array)
+     (call-gs-fun '[) 
+     (loop for index below (length array) do
+           (stack-push (elt array index))
+           (execute-gs-string block))
+     (call-gs-fun '])))
+  ((gs-block gs-string)
+   (pop-into (block string)
+     (call-gs-fun '[)
+     (loop for index below (length string) do
+           (stack-push (make-gs-integer
+                         (char-code (elt string index))))
+           (execute-gs-string block))
+     (call-gs-fun '])
+     (stack-push
+       (map 'string (lambda (x)
+                      (code-char (gs-var-value x)))
+            (gs-var-value (stack-pop)))))))
 
 (define-gs-function ([)
   ((t)
