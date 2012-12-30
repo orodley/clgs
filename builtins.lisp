@@ -269,6 +269,11 @@
                                 *stack-mark*)
                       collecting (stack-pop))))))))
 
+(define-gs-function (|;| :require 1)
+  ((t)
+   ;; Pop and discard top of stack
+   (stack-pop)))
+
 (define-gs-function (|,| :require 1)
   ((gs-integer)
    ;; Range
