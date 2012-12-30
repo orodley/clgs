@@ -342,6 +342,20 @@
    (pop-into (array)
      (stack-push
        (make-gs-array
-         (subseq array 1)))
-     (stack-push
+         (subseq array 1))
        (elt array 0)))))
+
+;; And again, trick slimv -v
+(define-gs-function #+nil |(| (|)| :require 1)
+  ((gs-integer)
+   ;; Increment
+   (pop-into (a)
+     (stack-push
+       (make-gs-integer (1+ a)))))
+  ((gs-array)
+   (pop-into (array)
+     (let ((array-end (1- (length array))))
+       (stack-push
+         (make-gs-array
+           (subseq array 0 array-end))
+         (elt array array-end))))))
