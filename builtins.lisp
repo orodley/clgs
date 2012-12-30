@@ -283,6 +283,12 @@
                                 *stack-mark*)
                       collecting (stack-pop))))))))
 
+(define-gs-function (|\\| :require 2)
+  ((t)
+   ;; Swap top two stack elements
+   (pop-into* (a b)
+     (stack-push a b))))
+
 (define-gs-function (|;| :require 1)
   ((t)
    ;; Pop and discard top of stack
