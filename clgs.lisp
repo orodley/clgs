@@ -55,6 +55,8 @@
         (add-to-var-table var value *variable-table*)))
 
 ;;; Types
+;;; TODO: Learn CLOS and define these better so that blocks and strings are subclasses of arrays
+;;; It would make lots of the code way simpler
 (defstruct (gs-integer
              (:constructor make-gs-integer (value)))
   (value 0   :type integer))

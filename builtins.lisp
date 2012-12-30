@@ -146,10 +146,10 @@
        (stack-elt a)))) 
   ((gs-string)
    ;; Sort 
-   (pop-into (a) 
+   (pop-into (string) 
      (stack-push
        (make-gs-string
-         (sort a #'char<)))))
+         (sort string #'char<)))))
   ((gs-array)
    (pop-into (array)
      (stack-push
@@ -157,8 +157,22 @@
          (sort array #'< :key #'gs-var-value)))))
   ((gs-block)
    ;; Sort string or array by a mapping, like:
-   ;; (SORT STRING :KEY KEY-BLOCK)
-   ))
+   ;; (SORT SEQUENCE :KEY KEY-BLOCK)
+   ;; TODO: Doesn't sort strings correctly
+   (pop-into (block sequence)
+     (let ((gs-string-p (eq (type-of sequence)
+                            'gs-string)))
+       (stack-push
+         (make-gs-object
+           (sort sequence #'<
+                 :key
+                 (lambda (x)
+                   (stack-push (if gs-string-p 
+                                 (make-gs-integer
+                                   (char-code x))
+                                 x))
+                   (execute-gs-string block)
+                   (gs-var-value (stack-pop))))))))))
 
 (define-gs-function (+ :coerce 2) 
   ((gs-integer)
@@ -313,3 +327,21 @@
      (make-gs-object
        (gs-var-value
          (stack-elt 0))))))
+
+;;                    |- Fucks up parenthesis balancing in slimv
+;;                    |  Tricks it into accepting the form as balanced
+;;                    v                     v
+(define-gs-function (|(| :require 1) #+nil |)|
+  ((gs-integer)
+   ;; Decrement
+   (pop-into (a)
+     (stack-push
+       (make-gs-integer (1- a)))))
+  ((gs-array)
+   ;; "Uncons"
+   (pop-into (array)
+     (stack-push
+       (make-gs-array
+         (subseq array 1)))
+     (stack-push
+       (elt array 0)))))
