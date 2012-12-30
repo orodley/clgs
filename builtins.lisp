@@ -147,15 +147,18 @@
   ((gs-string)
    ;; Sort 
    (pop-into (a) 
-   (stack-push
-     (make-gs-string
-       (sort a #'char<)))))
-  ((gs-block gs-string)
-   ;; Sort string by mapping, like (SORT STRING :KEY KEY-BLOCK)
-   (pop-into (key-block string)
      (stack-push
        (make-gs-string
-         ())))))
+         (sort a #'char<)))))
+  ((gs-array)
+   (pop-into (array)
+     (stack-push
+       (make-gs-array
+         (sort array #'< :key #'gs-var-value)))))
+  ((gs-block)
+   ;; Sort string or array by a mapping, like:
+   ;; (SORT STRING :KEY KEY-BLOCK)
+   ))
 
 (define-gs-function (+ :coerce 2) 
   ((gs-integer)
@@ -297,3 +300,11 @@
                (vector-push-extend (stack-pop) filtered-array)      
                (stack-pop)))
        (stack-push (make-gs-array filtered-array))))))
+
+(define-gs-function (|.| :require 1)
+  ((t)
+   ;; Duplicate top of stack
+   (stack-push
+     (make-gs-object
+       (gs-var-value
+         (stack-elt 0))))))
