@@ -29,6 +29,7 @@
                                             (loop repeat ,coerce collecting
                                                   (stack-pop))))
                                  do (stack-push coerced-arg)))
+                       ;; Check for required amount of args
                        ,(when (plusp require)
                           `(unless (>= (length *stack*)
                                        ,require)
@@ -40,9 +41,9 @@
                          ,@(mapcar (lambda (arg-case)
                                      (if (equal (car arg-case) '(t))
                                        `(t ,@(cdr arg-case))
-                                       `((equal (mapcar #'type-of
-                                                        (stack-peek ,(length (car arg-case))))
-                                                (quote ,(car arg-case)))
+                                       `((every (mapcar #'subtypep
+                                                        (stack-peek ,(length (car arg-case)))
+                                                        (quote ,(car arg-case))))
                                          ,@(cdr arg-case)))) 
                                    arg-cases)
                          ;; Fallen through all possible combinations; invalid function call
@@ -50,7 +51,7 @@
                                    match any expected cases:~%~S"
                                    (quote ,name)
                                    (quote ,(mapcar #'car arg-cases))))))
-                     *builtins*))
+  *builtins*))
 
 (defmacro pop-into (var-list &body body)
   "Pop the GS-VAR-VALUEs of the top values of the stack into
@@ -160,8 +161,7 @@
    ;; (SORT SEQUENCE :KEY KEY-BLOCK)
    ;; TODO: Doesn't sort strings correctly
    (pop-into (block sequence)
-     (let ((gs-string-p (eq (type-of sequence)
-                            'gs-string)))
+     (let ((gs-string-p (typep sequence 'gs-string)))
        (stack-push
          (make-gs-object
            (sort sequence #'<
@@ -359,6 +359,7 @@
      (stack-push
        (make-gs-integer (1+ a)))))
   ((gs-array)
+   ;; "Uncons" from right
    (pop-into (array)
      (let ((array-end (1- (length array))))
        (stack-push
