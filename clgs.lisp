@@ -101,6 +101,14 @@
     (vector  (make-gs-array   object))
     (list    (make-gs-array   (vector object)))))
 
+(defun make-same-type (gs-object value)
+  "Return a new gs-object containing VALUE of the same type as GS-OBJECT"
+  (etypecase gs-object
+    (gs-block   (make-gs-block value))
+    (gs-string  (make-gs-string value))
+    (gs-array   (make-gs-array value))
+    (gs-integer (make-gs-integer value))))
+
 ;;; Parsing
 
 (defun tokenize (gs-code-string)
@@ -207,8 +215,8 @@
                          (reduce (lambda (a b)
                                    (concatenate 'string a " " b)) 
                                  (map 'list (lambda (x)
-                                              (slot-value (coerce-gs-object x 'gs-string)
-                                                          'value))
+                                              (gs-var-value 
+                                                (coerce-gs-object x 'gs-string)))
                                       value)
                            :from-end t :initial-value "")))))
         (gs-string
