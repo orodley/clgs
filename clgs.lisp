@@ -64,8 +64,8 @@
              (:constructor make-gs-array   (value)))
   (value #() :type vector))
 (defstruct (gs-string
-             (:constructor make-gs-string  (value)))
-  (value ""  :type string))
+             (:constructor make-gs-string  (value))
+             (:include gs-array)))
 (defstruct (gs-block
              (:constructor make-gs-block   (value)))
   (value ""  :type string))
@@ -79,8 +79,8 @@
   "Return coercion priority for OBJECT (higher values take precedence)"
   (etypecase object
     (gs-integer 1)
-    (gs-array   2)
     (gs-string  3)
+    (gs-array   2)
     (gs-block   4)))
 
 (defun type-of-priority (priority)
@@ -117,13 +117,15 @@
   as built-in functions."
   (case (char token-string 0)
     (#\' (make-gs-string
-           (cl-ppcre:regex-replace-all 
-             "([^\\\\]|^)\\\\" (string-trim "'" token-string) "\\1")))
+           (map 'vector #'char-code
+                (cl-ppcre:regex-replace-all 
+                  "([^\\\\]|^)\\\\" (string-trim "'" token-string) "\\1"))))
     (#\{ (make-gs-block
            (string-trim "{}" token-string)))
     ;; TODO: Doesn't handle some escape sequences i.e. \n
     (#\" (make-gs-string
-           (string-trim "\"" token-string)))
+           (map 'vector #'char-code
+                (string-trim "\"" token-string))))
     (otherwise (make-gs-integer 
                  (read-from-string token-string)))))
 
@@ -190,16 +192,15 @@
         (gs-integer
           (ecase type
             (gs-array  (make-gs-array  (vector value)))
-            (gs-string (make-gs-string (write-to-string value)))
+            (gs-string (make-gs-string (map 'vector #'char-code
+                                            (write-to-string value))))
             (gs-block  (make-gs-block 
                          (concatenate 'string (write-to-string value) " ")))))
         (gs-array
           (ecase type
             ;; TODO: This breaks on nested arrays, e.g. [[51 52][53 54]]"55"+
             ;; and non-integer arrays
-            (gs-string (make-gs-string (map 'string (lambda (x)
-                                                      (code-char (gs-var-value x)))
-                                            value)))
+            (gs-string (make-gs-string value))
             (gs-block  (make-gs-block 
                          ;; Coerce all elements of the array to
                          ;; gs-string, and join with " "
@@ -212,6 +213,8 @@
                            :from-end t :initial-value "")))))
         (gs-string
           (ecase type
-            (gs-block (make-gs-block (concatenate 'string value " ")))))))))
+            (gs-block (make-gs-block (concatenate 'string
+                                                  (map 'string #'code-char
+                                                       value) " ")))))))))
 
 (load "builtins.lisp")

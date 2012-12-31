@@ -41,7 +41,10 @@
                          ,@(mapcar (lambda (arg-case)
                                      (if (equal (car arg-case) '(t))
                                        `(t ,@(cdr arg-case))
-                                       `((every (mapcar #'subtypep
+                                       `((every #'identity
+                                                (mapcar (lambda (arg type)
+                                                          (subtypep (type-of arg)
+                                                                    type))
                                                         (stack-peek ,(length (car arg-case)))
                                                         (quote ,(car arg-case))))
                                          ,@(cdr arg-case)))) 
@@ -106,20 +109,21 @@
    (pop-into (a)
      (stack-push (make-gs-integer
                    (lognot a))))) 
-  ((gs-string) 
-   ;; Eval
-   (pop-into (a)
-     (execute-gs-string a))) 
-  ((gs-block)
-   (pop-into (a)
-     (execute-gs-string a)))
   ((gs-array)
    ;; Dump items
    (pop-into (a)
      (map nil
           (lambda (object)
             (stack-push object))
-          a))))
+          a)))
+  ((gs-string) 
+   ;; Eval
+   (pop-into (a)
+     (execute-gs-string (map 'string #'code-char
+                             a)))) 
+  ((gs-block)
+   (pop-into (a)
+     (execute-gs-string a))))
 
 (define-gs-function (! :require 1)
   ((t)
@@ -150,7 +154,7 @@
    (pop-into (string) 
      (stack-push
        (make-gs-string
-         (sort string #'char<)))))
+         (sort string #'< :key #'gs-var-value)))))
   ((gs-array)
    (pop-into (array)
      (stack-push
@@ -184,7 +188,7 @@
    ;; Concatenate
    (pop-into (a b)
      (stack-push (make-gs-string
-                   (concatenate 'string b a)))))
+                   (concatenate 'vector b a)))))
   ((gs-array)
    (pop-into (a b)
      (stack-push (make-gs-array
@@ -205,9 +209,9 @@
    (pop-into (delimiter string)
      (stack-push
        (make-gs-array
-         (remove ""
+         (remove #()
                  (split-sequence string delimiter)
-                 :test #'string-equal)))))
+                 :test #'equalp)))))
   ((gs-array gs-array)
    ;; Array split, with empty elements removed
    (pop-into (delimiter array)
@@ -245,7 +249,7 @@
               (loop for index from (1- (length array)) downto 0 by (abs n)
                     collect (elt array index)))
              (t (error "Zero slice value supplied to %")))
-           'string)))))
+           'vector)))))
   ((gs-block gs-array)
    ;; Map
    (pop-into (block array)
@@ -258,14 +262,9 @@
    (pop-into (block string)
      (call-gs-fun '[)
      (loop for index below (length string) do
-           (stack-push (make-gs-integer
-                         (char-code (elt string index))))
+           (stack-push (elt string index))
            (execute-gs-string block))
-     (call-gs-fun '])
-     (stack-push
-       (map 'string (lambda (x)
-                      (code-char (gs-var-value x)))
-            (gs-var-value (stack-pop)))))))
+     (call-gs-fun ']))))
 
 (define-gs-function ([)
   ((t)
