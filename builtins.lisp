@@ -60,6 +60,8 @@
   "Pop the top values of the stack into the variables in VAR-LIST
   in order, and bind their GS-VAR-VALUEs to <VAR>-VAL for each
   <VAR> in VAR-LIST, then execute body."
+  ;; TODO: Remove unused bindings to avoid annoying "defined by never used" warnings
+  ;; TODO: Possibly add (TYPE-OF VAR) => <VAR>-TYPE bindings?
   `(let* ,(append
            (mapcar (lambda (var)
                      `(,var (stack-pop)))
@@ -81,6 +83,7 @@
   "Return a vector consisting of SEQUENCE split along DELIMITER"
   ;; TODO: Fix case where delimiter is at the end:
   ;; (SPLIT-SEQUENCE "a|b|" "|") currently returns #("a" "b|")
+  ;; rather than #("a" "b" "")
   (let ((delim-length (length delimiter))
         (sequence-length (length sequence)))
     (apply #'vector
@@ -110,21 +113,17 @@
    (pop-into (a)
      (stack-push (make-gs-integer
                    (lognot a-val))))) 
+  ((gs-string) 
+   ;; Eval
+   (pop-into (a)
+     (execute-gs-string a-val)))
   ((gs-array)
    ;; Dump items
    (pop-into (a)
      (map nil
           (lambda (object)
             (stack-push object))
-          a-val)))
-  ((gs-string) 
-   ;; Eval
-   (pop-into (a)
-     (execute-gs-string (map 'string #'code-char
-                             a-val)))) 
-  ((gs-block)
-   (pop-into (a)
-     (execute-gs-string a-val))))
+          a-val))))
 
 (define-gs-function (! :require 1)
   ((t)
@@ -155,7 +154,7 @@
    (pop-into (string) 
      (stack-push
        (make-gs-string
-         (sort string #'< :key #'gs-var-value)))))
+         (sort string-val #'< :key #'gs-var-value)))))
   ((gs-array)
    (pop-into (array)
      (stack-push
@@ -166,18 +165,14 @@
    ;; (SORT SEQUENCE :KEY KEY-BLOCK)
    ;; TODO: Doesn't sort strings correctly
    (pop-into (block sequence)
-     (let ((gs-string-p (typep sequence-val 'gs-string)))
-       (stack-push
-         (make-gs-object
-           (sort sequence-val #'<
-                 :key
-                 (lambda (x)
-                   (stack-push (if gs-string-p 
-                                 (make-gs-integer
-                                   (char-code x))
-                                 x))
-                   (execute-gs-string block-val)
-                   (gs-var-value (stack-pop))))))))))
+     (stack-push
+       (make-same-type sequence
+         (sort sequence-val #'<
+               :key
+               (lambda (x)
+                 (stack-push x)
+                 (execute-gs-string block-val)
+                 (gs-var-value (stack-pop)))))))))
 
 (define-gs-function (+ :coerce 2) 
   ((gs-integer)
@@ -185,19 +180,11 @@
    (pop-into (a b)
      (stack-push (make-gs-integer
                    (+ b-val a-val)))))
-  ((gs-string)
-   ;; Concatenate
-   (pop-into (a b)
-     (stack-push (make-gs-string
-                   (concatenate 'vector b-val a-val)))))
   ((gs-array)
    (pop-into (a b)
-     (stack-push (make-gs-array
-                   (concatenate 'vector b-val a-val)))))
-  ((gs-block)
-   (pop-into (a b)
-     (stack-push (make-gs-block
-                   (concatenate 'string b-val a-val))))))
+     ;; Concatenate
+     (stack-push (make-same-type a
+                   (concatenate 'vector b-val a-val))))))
 
 (define-gs-function (% :require 2)
   ((gs-integer gs-integer)
@@ -286,7 +273,7 @@
 (define-gs-function (|\\| :require 2)
   ((t)
    ;; Swap top two stack elements
-   (pop-into* (a b)
+   (pop-into (a b)
      (stack-push a b))))
 
 (define-gs-function (|;| :require 1)
@@ -303,28 +290,27 @@
              (setf (elt range-vector n)
                    (make-gs-integer n)))
        (stack-push (make-gs-array range-vector)))))
+  ((gs-block gs-array)
+   ;; Filter
+   (pop-into (predicate array)
+     (setf predicate-val
+           (concatenate 'vector predicate-val
+                        (vector (make-gs-integer 
+                                  (char-code #\!)))))
+     (stack-push
+       (make-same-type
+         array
+         (delete-if (lambda (element)
+                      (stack-push element)
+                      (execute-gs-string predicate-val)
+                      (not (zerop
+                             (gs-var-value (stack-pop)))))
+                    array-val)))))
   ((gs-array)
    ;; Array size
    (pop-into (a)
      (stack-push (make-gs-integer
-                   (length a-val)))))
-  ((gs-block gs-array)
-   ;; Filter
-   (pop-into (predicate array)
-     (let ((predicate-val
-             (concatenate 'string predicate-val "!"))
-           (filtered-array
-             (make-array 0 :fill-pointer t)))
-       (map nil
-            (lambda (object)
-              (stack-push object))
-            array-val) 
-       (loop repeat (length array-val) do
-             (execute-gs-string predicate-val)
-             (if (zerop (gs-var-value (stack-elt 0)))
-               (vector-push-extend (stack-pop) filtered-array)      
-               (stack-pop)))
-       (stack-push (make-gs-array filtered-array))))))
+                   (length a-val))))))
 
 (define-gs-function (|.| :require 1)
   ((t)

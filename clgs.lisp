@@ -67,8 +67,8 @@
              (:constructor make-gs-string  (value))
              (:include gs-array)))
 (defstruct (gs-block
-             (:constructor make-gs-block   (value)))
-  (value ""  :type string))
+             (:constructor make-gs-block   (value))
+             (:include gs-string)))
 
 (defun gs-var-value (gs-var)
   "Return the value contained in a golfscript variable"
@@ -116,26 +116,31 @@
   (cl-ppcre:all-matches-as-strings
     ;; TODO: Doesn't tokenize strings with escaped quotes correctly
     ;; ---variable name---------{block}-----'string'----------"string"-------integer-----comment--single character token
-    "[a-zA-Z_][a-zA-Z0-9_]*|{(?:\\.|[^'])*}|'(?:\\.|[^'])*'?|\"(?:\\.|[^\"])*\"?|-?[0-9]+|#[^\\n\\r]*|."
+    "[a-zA-Z_][a-zA-Z0-9_]*|{(?:\\.|[^{}])*}|'(?:\\.|[^'])*'?|\"(?:\\.|[^\"])*\"?|-?[0-9]+|#[^\\n\\r]*|."
     gs-code-string))
 
 (defun read-gs-literal (token-string)
   "Read a literal string or integer token into a golfscript type.
   Note that [ and ] do not delimit array literals; they are defined
   as built-in functions."
+  (declare (type string token-string))
   (case (char token-string 0)
     (#\' (make-gs-string
-           (map 'vector #'char-code
+           (map 'vector #'gs-integer<-char
                 (cl-ppcre:regex-replace-all 
                   "([^\\\\]|^)\\\\" (string-trim "'" token-string) "\\1"))))
     (#\{ (make-gs-block
-           (string-trim "{}" token-string)))
+           (map 'vector #'gs-integer<-char
+                (string-trim "{}" token-string))))
     ;; TODO: Doesn't handle some escape sequences i.e. \n
     (#\" (make-gs-string
-           (map 'vector #'char-code
+           (map 'vector #'gs-integer<-char
                 (string-trim "\"" token-string))))
     (otherwise (make-gs-integer 
                  (read-from-string token-string)))))
+
+(defun gs-integer<-char (char)
+  (make-gs-integer (char-code char)))
 
 (defun gs-literal-p (token-string)
   (declare (type string token-string))
@@ -145,6 +150,7 @@
         (digit-char-p first-char))))
 
 (defun gs-comment-p (token-string)
+  (declare (type string token-string))
   (char-equal (char token-string 0) #\#))
 
 (defun execute-gs-program (gs-code-string &optional stack-values)
@@ -157,7 +163,17 @@
   (reverse *stack*)) 
 
 (defun execute-gs-string (gs-code-string)
-  "Execute string as golfscript code. Doesn't reset stack or variable table"
+  "Execute string or vector of gs-integer char-codes as golfscript
+  code. Doesn't reset stack or variable table"
+  ;; When a non-string vector is passed, it's a gs-string
+  ;; of gs-integer char-codes
+  (when (and (vectorp gs-code-string)
+             (not (stringp gs-code-string)))
+    (setf gs-code-string
+          (map 'string (lambda (gs-int)
+                         (code-char
+                           (gs-var-value gs-int)))
+               gs-code-string)))
   (loop for token in (tokenize gs-code-string) do
         (cond
           ((gs-literal-p token)
