@@ -32,8 +32,8 @@
                        ,(when (plusp require)
                           `(unless (>= (length *stack*)
                                        ,require)
-                             (error "Not enough values on stack for function ~S: ~
-                                    expected >=~D, got ~D"
+                             (error "Not enough values on stack for ~
+                                    function ~S: expected >=~D, got ~D"
                                     (quote ,name) ,require (length *stack*))))
                        (cond
                          ;; Set up cond clauses for each arg type combination
@@ -194,14 +194,6 @@
    (pop-into (a b)
      (stack-push (make-gs-integer
                    (mod b-val a-val)))))
-  ((gs-string gs-string)
-   ;; String split, with empty elements removed
-   (pop-into (delimiter string)
-     (stack-push
-       (make-gs-array
-         (remove #()
-                 (split-sequence string-val delimiter-val)
-                 :test #'equalp)))))
   ((gs-array gs-array)
    ;; Array split, with empty elements removed
    (pop-into (delimiter array)
@@ -319,9 +311,7 @@
    ;; Duplicate top of stack
    (pop-into (a)
      (stack-push
-       (make-same-type
-         a
-         a-val)))))
+       (make-same-type a a-val)))))
 
 ;;                    |- Fucks up parenthesis balancing in slimv
 ;;                    |  Tricks it into accepting the form as balanced
