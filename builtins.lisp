@@ -4,7 +4,6 @@
 (defvar *builtins* (make-hash-table)
   "Holds all builtin functions and variables")
 
-;; TODO: Add arg number checking for individual arg cases
 (defmacro define-gs-function ((name &key (coerce 0) (require 0)) &body arg-cases)
   "Define a builtin function and insert it into *builtins*.
   Each case defines a different function to perform depending
@@ -41,12 +40,15 @@
                          ,@(mapcar (lambda (arg-case)
                                      (if (equal (car arg-case) '(t))
                                        `(t ,@(cdr arg-case))
-                                       `((every #'identity
+                                       `((and
+                                           (>= (length *stack*)
+                                               ,(length (car arg-case)))
+                                           (every #'identity
                                                 (mapcar (lambda (arg type)
                                                           (subtypep (type-of arg)
                                                                     type))
                                                         (stack-peek ,(length (car arg-case)))
-                                                        (quote ,(car arg-case))))
+                                                        (quote ,(car arg-case)))))
                                          ,@(cdr arg-case)))) 
                                    arg-cases)
                          ;; Fallen through all possible combinations; invalid function call
@@ -315,10 +317,11 @@
 (define-gs-function (|.| :require 1)
   ((t)
    ;; Duplicate top of stack
-   (stack-push
-     (make-gs-object
-       (gs-var-value
-         (stack-elt 0))))))
+   (pop-into (a)
+     (stack-push
+       (make-same-type
+         a
+         a-val)))))
 
 ;;                    |- Fucks up parenthesis balancing in slimv
 ;;                    |  Tricks it into accepting the form as balanced
