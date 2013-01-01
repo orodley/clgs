@@ -200,7 +200,15 @@
    ;; Subtract
    (pop-into (a b)
      (stack-push (make-gs-integer
-                   (- b-val a-val))))))
+                   (- b-val a-val)))))
+  ((gs-array)
+   ;; Array difference
+   (pop-into (a b)
+     (stack-push (make-gs-array
+                   (delete-if (lambda (item)
+                                (find item a-val
+                                      :test #'equalp))
+                              b-val))))))
 
 (define-gs-function (% :require 2)
   ((gs-integer gs-integer)

@@ -264,7 +264,9 @@
             (surround #\' value #\'))
           (gs-array
             (surround #\[
-                      (reduce (lambda (a b)
+                      (if (zerop (length value))
+                        #()
+                        (reduce (lambda (a b)
                                 (concatenate 'vector
                                              a
                                              (vector
@@ -276,7 +278,7 @@
                               :initial-value (gs-var-value 
                                                (gs-repr
                                                  (elt value 0)))
-                              :start 1)
+                              :start 1))
                       #\]))
           (gs-integer
             (map 'vector #'gs-integer<-char
