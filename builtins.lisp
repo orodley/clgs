@@ -295,31 +295,17 @@
    ;; Go from end if n is negative
    (pop-into (n array)
      (stack-push
-       (make-gs-array
+       (make-same-type
+         array
          (apply #'vector
                 (cond
                   ((plusp n-val)
-                   (loop for index below (length array) by n-val
+                   (loop for index below (length array-val) by n-val
                          collect (elt array-val index)))
-                  ((minusp n)
+                  ((minusp n-val)
                    (loop for index from (1- (length array-val)) downto 0 by (abs n-val)
                          collect (elt array-val index)))
                   (t (error "Zero slice value supplied to %"))))))))
-  ((gs-integer gs-string)
-   ;; TODO: Yucky code duplication
-   (pop-into (n array)
-     (stack-push
-       (make-gs-string
-         (coerce 
-           (cond
-             ((plusp n-val)
-              (loop for index below (length array-val) by n-val
-                    collect (elt array-val index)))
-             ((minusp n-val)
-              (loop for index from (1- (length array-val)) downto 0 by (abs n-val)
-                    collect (elt array-val index)))
-             (t (error "Zero slice value supplied to %")))
-           'vector)))))
   ((gs-block gs-array)
    ;; Map
    (pop-into (block array)
