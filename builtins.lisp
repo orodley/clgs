@@ -224,7 +224,39 @@
   ((gs-integer gs-block)
    (pop-into (n block)
      (loop repeat n-val do
-           (execute-gs-string block-val)))))
+           (execute-gs-string block-val))))
+  ((gs-integer gs-array)
+   ;; Array repeat
+   (pop-into (n array)
+     (stack-push
+       (make-same-type 
+         array
+         (reduce (lambda (a b) 
+                   (concatenate 'vector a b)) 
+                 (loop repeat n-val collecting array-val))))))
+  ((gs-block gs-array)
+   ;; Reduce
+   (pop-into (block array)
+     (stack-push
+       (reduce (lambda (a b)
+                 (stack-push a)
+                 (stack-push b)
+                 (execute-gs-string block-val)
+                 (stack-pop))
+               array-val))))
+  ((gs-array gs-array)
+   ;; Join
+   (pop-into (joiner joinee)
+     (destructuring-bind (joinee joiner) (coerce-args `(,joinee ,joiner))
+       (let ((joinee-val (gs-var-value joinee))
+             (joiner-val (gs-var-value joiner)))
+         (stack-push
+           (make-same-type 
+             joinee
+             (reduce (lambda (a b)
+                       (concatenate 'vector a joiner-val b))
+                     joinee-val
+                     :key #'vector))))))))
 
 (define-gs-function (% :require 2)
   ((gs-integer gs-integer)
@@ -287,6 +319,7 @@
      (call-gs-fun ']))))
 
 (define-gs-function ([)
+  ;; TODO: Fix for nested arrays
   ((t)
    ;; Mark stack size
    (setf *stack-mark* (length *stack*))))
