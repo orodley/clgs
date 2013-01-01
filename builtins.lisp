@@ -23,41 +23,41 @@
         (error "In definition of golfscript function \"~S\": ~S is not ~
                a valid golfscript type"
                name type))))
-  `(add-to-var-table (quote ,name)
-                     (lambda ()
-                       ;; Coerce args if necessary
-                       ,(when (plusp coerce)
-                          `(loop for coerced-arg in 
-                                 (reverse (coerce-args
-                                            (loop repeat ,coerce collecting
-                                                  (stack-pop))))
-                                 do (stack-push coerced-arg)))
-                       ;; Check for required amount of args
-                       ,(when (plusp require)
-                          `(unless (>= (length *stack*)
-                                       ,require)
-                             (error "Not enough values on stack for ~
-                                    function ~S: expected >=~D, got ~D"
-                                    (quote ,name) ,require (length *stack*))))
-                       (cond
-                         ;; Set up cond clauses for each arg type combination
-                         ,@(mapcar (lambda (arg-case)
-                                     (if (equal (car arg-case) '(t))
-                                       `(t ,@(cdr arg-case))
-                                       `((and
-                                           (>= (length *stack*)
-                                               ,(length (car arg-case)))
-                                           (every #'typep 
-                                                  (stack-peek ,(length (car arg-case))) 
-                                                  (quote ,(car arg-case))))
-                                         ,@(cdr arg-case)))) 
-                                   arg-cases)
-                         ;; Fallen through all possible combinations:
-                         ;; invalid function call
-                         (t (error "~S called with invalid argument types; didn't ~
-                                   match any expected cases:~%~S"
-                                   (quote ,name)
-                                   (quote ,(mapcar #'car arg-cases))))))
+  `(add-to-var-table
+     (quote ,name)
+     (lambda ()
+       ;; Coerce args if necessary
+       ,(when (plusp coerce)
+          `(loop for coerced-arg in 
+                 (reverse (coerce-args
+                            (loop repeat ,coerce collecting
+                                  (stack-pop))))
+                 do (stack-push coerced-arg)))
+       ;; Check for required amount of args
+       ,(when (plusp require)
+          `(unless (>= (length *stack*)
+                       ,require)
+             (error "Not enough values on stack for  function ~S: ~
+                    expected >=~D, got ~D"
+             (quote ,name) ,require (length *stack*))))
+     (cond
+       ;; Set up cond clauses for each arg type combination
+       ,@(mapcar (lambda (arg-case)
+                   (if (equal (car arg-case) '(t))
+                     `(t ,@(cdr arg-case))
+                     `((and
+                         (>= (length *stack*)
+                             ,(length (car arg-case)))
+                         (every #'typep 
+                                (stack-peek ,(length (car arg-case))) 
+                                (quote ,(car arg-case))))
+                       ,@(cdr arg-case)))) 
+                 arg-cases)
+       ;; Fallen through all possible combinations: invalid function call
+       (t (error "~S called with invalid argument types; didn't ~
+                 match any expected cases:~%~S"
+                 (quote ,name)
+                 (quote ,(mapcar #'car arg-cases))))))
   *builtins*))
 
 (defmacro pop-into (var-list &body body)
