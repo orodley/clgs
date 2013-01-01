@@ -146,7 +146,9 @@
   (declare (type string token-string))
   (let ((first-char (char token-string 0)))
     (or (member first-char
-                '(#\' #\" #\{ #\-))
+                '(#\' #\" #\{))
+        (and (char-equal first-char #\-)
+             (> (length token-string) 1))
         (digit-char-p first-char))))
 
 (defun gs-comment-p (token-string)

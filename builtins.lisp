@@ -7,7 +7,9 @@
 (defmacro define-gs-function ((name &key (coerce 0) (require 0)) &body arg-cases)
   "Define a builtin function and insert it into *builtins*.
   Each case defines a different function to perform depending
-  on the types of the arguments."
+  on the types of the arguments.
+  Supertypes will shadow subtypes, so make sure to insert
+  arg-cases in most specific type first order."
   ;; Check for invalid types in ARG-CASES
   (dolist (arg-case arg-cases)
     (dolist (type (car arg-case))
@@ -192,6 +194,13 @@
      ;; Concatenate
      (stack-push (make-same-type a
                    (concatenate 'vector b-val a-val))))))
+
+(define-gs-function (- :coerce 2)
+  ((gs-integer)
+   ;; Subtract
+   (pop-into (a b)
+     (stack-push (make-gs-integer
+                   (- b-val a-val))))))
 
 (define-gs-function (% :require 2)
   ((gs-integer gs-integer)
