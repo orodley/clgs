@@ -269,6 +269,22 @@
    (pop-into (a b)
      (stack-push
        (make-gs-integer (truncate b-val a-val)))))
+  ((gs-integer gs-array)
+   ;; Split into groups of size n
+   (pop-into (n array)
+     (let ((array-length (length array-val)))
+       (format t "Array length: ~D" array-length)
+       (stack-push
+         (make-gs-array
+           (apply #'vector
+                  (loop for index below array-length by n-val
+                        collecting (make-same-type
+                                     array
+                                     (subseq array-val index
+                                             (if (<= (+ index n-val)
+                                                     array-length)
+                                               (+ index n-val)
+                                               array-length))))))))))
   ((gs-array gs-array)
    ;; Split array
    (pop-into (delimiter array)
