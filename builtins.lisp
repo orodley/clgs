@@ -273,7 +273,6 @@
    ;; Split into groups of size n
    (pop-into (n array)
      (let ((array-length (length array-val)))
-       (format t "Array length: ~D" array-length)
        (stack-push
          (make-gs-array
            (apply #'vector
@@ -285,6 +284,13 @@
                                                      array-length)
                                                (+ index n-val)
                                                array-length))))))))))
+  ((gs-block gs-array)
+   ;; foreach/dolist loop
+   (pop-into (block array)
+     (map nil (lambda (item)
+                (stack-push item)
+                (execute-gs-string block-val))
+          array-val)))
   ((gs-array gs-array)
    ;; Split array
    (pop-into (delimiter array)
