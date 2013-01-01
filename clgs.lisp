@@ -165,8 +165,7 @@
   (format t "(~{~A~^ ~})"
           (mapcar (lambda (gs-object)
                     (map 'string
-                         (lambda (gs-int)
-                           #'char<-gs-integer)
+                         #'char<-gs-integer
                          (gs-var-value
                            (gs-repr gs-object))))
                   (reverse *stack*))))

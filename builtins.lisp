@@ -86,7 +86,7 @@
 (defun split-gs-array (sequence delimiter)
   "Return a vector consisting of SEQUENCE split along DELIMITER"
   ;; TODO: Fix case where delimiter is at the end:
-  ;; (split-gs-array "a|b|" "|") currently returns #("a" "b|")
+  ;; (SPLIT-GS-ARRAY "a|b|" "|") currently returns #("a" "b|")
   ;; rather than #("a" "b" "")
   (let* ((delim-length (length delimiter))
          (sequence-val (gs-var-value sequence))
@@ -493,7 +493,7 @@
    ;; Duplicate top of stack
    (pop-into (a)
      (stack-push
-       (make-same-type a a-val)
+       a
        (make-same-type a a-val)))))
 
 (define-gs-function (? :require 2)
