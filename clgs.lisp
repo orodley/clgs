@@ -152,12 +152,19 @@
 
 (defun execute-gs-program (gs-code-string &optional stack-values)
   "Execute GS-CODE-STRING as golfscript code, optionally providing
-  starting stack values. Return value of stack on completion"
+  starting stack values. Print stack on completion"
   (set-stack stack-values)
   (reset-var-table)
   (execute-gs-string gs-code-string)
-  ;; TODO: Print stack in a more readable fashion
-  (reverse *stack*)) 
+  (format t "(~{~A~^ ~})"
+          (mapcar (lambda (gs-object)
+                    (map 'string
+                         (lambda (gs-int)
+                           (code-char
+                             (gs-var-value gs-int)))
+                         (gs-var-value
+                           (gs-repr gs-object))))
+                  (reverse *stack*))))
 
 (defun execute-gs-string (gs-code-string)
   "Execute string or vector of gs-integer char-codes as golfscript
