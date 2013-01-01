@@ -197,7 +197,7 @@
 
 (define-gs-function (- :coerce 2)
   ((gs-integer)
-   ;; Subtract
+   ;; Subtraction
    (pop-into (a b)
      (stack-push (make-gs-integer
                    (- b-val a-val)))))
@@ -209,6 +209,22 @@
                                 (find item a-val
                                       :test #'equalp))
                               b-val))))))
+
+(define-gs-function (* :require 2)
+  ((gs-integer gs-integer)
+   ;; Multiplication
+   (pop-into (a b)
+     (stack-push (make-gs-integer
+                   (* b-val a-val)))))
+  ((gs-block gs-integer)
+   ;; Execute block n times
+   (pop-into (block n)
+     (loop repeat n-val do
+           (execute-gs-string block-val))))
+  ((gs-integer gs-block)
+   (pop-into (n block)
+     (loop repeat n-val do
+           (execute-gs-string block-val)))))
 
 (define-gs-function (% :require 2)
   ((gs-integer gs-integer)
