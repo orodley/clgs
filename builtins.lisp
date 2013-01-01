@@ -491,7 +491,33 @@
    ;; Duplicate top of stack
    (pop-into (a)
      (stack-push
+       (make-same-type a a-val)
        (make-same-type a a-val)))))
+
+(define-gs-function (? :require 2)
+  ((gs-integer gs-integer)
+   ;; Raise an integer to a power
+   (pop-into (a b)
+     (stack-push
+       (make-gs-integer
+         (expt b-val a-val)))))
+  ((gs-block gs-array)
+   ;; FIND-IF
+   (pop-into (predicate array)
+     (stack-push
+       (find-if (lambda (item)
+                  (stack-push item)
+                  (execute-gs-string predicate-val)
+                  (call-gs-fun '!)
+                  (zerop (gs-var-value (stack-pop))))
+                array-val))))
+  ((gs-array t)
+   ;; POSITION
+   (pop-into (array item)
+     (stack-push
+       (make-gs-integer
+         (or (position item array-val :test #'equalp)
+             -1))))))
 
 ;;                    |- Fucks up parenthesis balancing in slimv
 ;;                    |  Tricks it into accepting the form as balanced
