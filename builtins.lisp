@@ -147,10 +147,7 @@
    (pop-into (a)
      (stack-push
        (make-gs-integer
-         (if (member a-val '(0 #() "")
-                     :test #'equalp)
-           1
-           0))))))
+         (if (truth-value a-val) 0 1))))))
 
 (define-gs-function (@ :require 3)
   ((t)
@@ -469,18 +466,13 @@
   ((gs-block gs-array)
    ;; Filter
    (pop-into (predicate array)
-     (setf predicate-val
-           (concatenate 'vector predicate-val
-                        (vector (make-gs-integer 
-                                  (char-code #\!)))))
      (stack-push
        (make-same-type
          array
          (delete-if (lambda (element)
                       (stack-push element)
                       (execute-gs-string predicate-val)
-                      (not (zerop
-                             (gs-var-value (stack-pop)))))
+                      (not (truth-value (stack-pop))))
                     array-val)))))
   ((gs-array)
    ;; Array size
@@ -510,8 +502,7 @@
        (find-if (lambda (item)
                   (stack-push item)
                   (execute-gs-string predicate-val)
-                  (call-gs-fun '!)
-                  (zerop (gs-var-value (stack-pop))))
+                  (truth-value (stack-pop)))
                 array-val))))
   ((gs-array t)
    ;; POSITION
@@ -567,9 +558,7 @@
    ;; do {...} while loop
    (pop-into (predicate)
      (loop do (execute-gs-string predicate-val)
-           unless (progn
-                    (call-gs-fun '!)
-                    (zerop (gs-var-value (stack-pop))))
+           unless (truth-value (stack-pop))
              return nil))))
 
 (define-gs-function (|while| :require 2)
@@ -579,8 +568,7 @@
      (loop while
            (progn
              (execute-gs-string predicate-val)
-             (call-gs-fun '!)
-             (zerop (gs-var-value (stack-pop))))
+             (truth-value (stack-pop)))
            do (execute-gs-string body-val)))))
 
 (define-gs-function (|until| :require 2)
@@ -590,6 +578,15 @@
      (loop until
            (progn
              (execute-gs-string predicate-val)
-             (call-gs-fun '!)
-             (zerop (gs-var-value (stack-pop))))
+             (truth-value (stack-pop)))
            do (execute-gs-string body-val)))))
+
+(define-gs-function (|if| :require 3)
+  ((t t t)
+   ;; if statement
+   (pop-into (else if condition)
+     (let ((choice
+             (if (truth-value condition) if else)))
+       (if (typep choice 'gs-block)
+         (execute-gs-string (gs-var-value choice))
+         (stack-push choice))))))

@@ -156,6 +156,12 @@
   (declare (type string token-string))
   (char-equal (char token-string 0) #\#))
 
+(defun truth-value (gs-object)
+  "Return GS-OBJECT if GS-OBJECT evaluates as a true
+  boolean in golfscript, or nil otherwise"
+  (not (member (gs-var-value gs-object) '(#() 0)
+               :test #'equalp)))
+
 (defun execute-gs-program (gs-code-string &optional stack-values)
   "Execute GS-CODE-STRING as golfscript code, optionally providing
   starting stack values. Print stack on completion"
@@ -269,15 +275,10 @@
                         (reduce (lambda (a b)
                                 (concatenate 'vector
                                              a
-                                             (vector
-                                               (gs-integer<-char
-                                                 #\Space))
-                                             (gs-var-value
-                                               (gs-repr b))))
+                                             (vector (gs-integer<-char #\Space))
+                                             (gs-var-value (gs-repr b))))
                               value
-                              :initial-value (gs-var-value 
-                                               (gs-repr
-                                                 (elt value 0)))
+                              :initial-value (gs-var-value (gs-repr (elt value 0)))
                               :start 1))
                       #\]))
           (gs-integer
