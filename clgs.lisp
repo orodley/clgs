@@ -139,6 +139,9 @@
 (defun gs-integer<-char (char)
   (make-gs-integer (char-code char)))
 
+(defun char<-gs-integer (gs-int)
+  (code-char (gs-var-value gs-int)))
+
 (defun gs-literal-p (token-string)
   (declare (type string token-string))
   (let ((first-char (char token-string 0)))
@@ -160,8 +163,7 @@
           (mapcar (lambda (gs-object)
                     (map 'string
                          (lambda (gs-int)
-                           (code-char
-                             (gs-var-value gs-int)))
+                           #'char<-gs-integer)
                          (gs-var-value
                            (gs-repr gs-object))))
                   (reverse *stack*))))
@@ -175,8 +177,7 @@
              (not (stringp gs-code-string)))
     (setf gs-code-string
           (map 'string (lambda (gs-int)
-                         (code-char
-                           (gs-var-value gs-int)))
+                         (char<-gs-integer gs-int))
                gs-code-string)))
   (loop for token in (tokenize gs-code-string) do
         (cond
