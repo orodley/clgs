@@ -372,6 +372,66 @@
    ;; Pop and discard top of stack
    (stack-pop)))
 
+(define-gs-function (< :require 2)
+  ((gs-integer gs-array)
+   ;; Select array elements with index < n
+   ;; Negative values select from end, like pythons [:n:]
+   (pop-into (n array)
+     (when (minusp n-val)
+       (setf n-val (+ (length array-val) n-val)))
+     (stack-push
+       (make-same-type
+         array
+         (subseq array-val 0 n-val)))))
+  ((gs-integer gs-integer)
+   ;; Less-than comparison
+   (pop-into (a b)
+     (stack-push
+       (make-gs-integer
+         (if (< b-val a-val)
+           1
+           0)))))
+  ((gs-array gs-array)
+   (pop-into (array1 array2)
+     (stack-push
+       (make-gs-integer
+         (if (some (lambda (a b)
+                     (< (gs-var-value a)
+                        (gs-var-value b)))
+                   array2-val array1-val)
+           1
+           0))))))
+
+(define-gs-function (> :require 2)
+  ((gs-integer gs-array)
+   ;; Select array elements with index > n
+   ;; Negative values select from end, like pythons [n::]
+   (pop-into (n array)
+     (when (minusp n-val)
+       (setf n-val (+ (length array-val) n-val)))
+     (stack-push
+       (make-same-type
+         array
+         (subseq array-val n-val (length array-val))))))
+  ((gs-integer gs-integer)
+   ;; Greater-than comparison
+   (pop-into (a b)
+     (stack-push
+       (make-gs-integer
+         (if (> b-val a-val)
+           1
+           0)))))
+  ((gs-array gs-array)
+   (pop-into (array1 array2)
+     (stack-push
+       (make-gs-integer
+         (if (some (lambda (a b)
+                     (> (gs-var-value a)
+                        (gs-var-value b)))
+                   array2-val array1-val)
+           1
+           0))))))
+
 (define-gs-function (|,| :require 1)
   ((gs-integer)
    ;; Range
