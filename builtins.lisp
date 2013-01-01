@@ -9,7 +9,9 @@
   Each case defines a different function to perform depending
   on the types of the arguments.
   Supertypes will shadow subtypes, so make sure to insert
-  arg-cases in most specific type first order."
+  arg-cases in most specific type first order.
+  Vertical bars are necessary for names containing alphabetical
+  characters, so that the reader doesn't upcase them"
   ;; Check for invalid types in ARG-CASES
   (dolist (arg-case arg-cases)
     (dolist (type (car arg-case))
@@ -551,3 +553,43 @@
          (make-same-type array
            (subseq array-val 0 array-end))
          (elt array-val array-end))))))
+
+(define-gs-function (|rand| :require 1)
+  ((gs-integer)
+   ;; Random integer from 0 below n
+   (pop-into (n)
+     (stack-push
+       (make-gs-integer
+         (random n-val))))))
+
+(define-gs-function (|do| :require 1)
+  ((gs-block)
+   ;; do {...} while loop
+   (pop-into (predicate)
+     (loop do (execute-gs-string predicate-val)
+           unless (progn
+                    (call-gs-fun '!)
+                    (zerop (gs-var-value (stack-pop))))
+             return nil))))
+
+(define-gs-function (|while| :require 2)
+  ((gs-block gs-block)
+   ;; while loop
+   (pop-into (body predicate)
+     (loop while
+           (progn
+             (execute-gs-string predicate-val)
+             (call-gs-fun '!)
+             (zerop (gs-var-value (stack-pop))))
+           do (execute-gs-string body-val)))))
+
+(define-gs-function (|until| :require 2)
+  ((gs-block gs-block)
+   ;; until loop
+   (pop-into (body predicate)
+     (loop until
+           (progn
+             (execute-gs-string predicate-val)
+             (call-gs-fun '!)
+             (zerop (gs-var-value (stack-pop))))
+           do (execute-gs-string body-val)))))
