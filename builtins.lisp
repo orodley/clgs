@@ -432,6 +432,29 @@
            1
            0))))))
 
+(define-gs-function (= :require 2)
+  ((gs-integer gs-array)
+   ;; Select array element with index = n
+   ;; Negative values select from end, like pythons [n]
+   ;; If the index is out of bounds, no error is thrown
+   (pop-into (n array)
+     (when (minusp n-val)
+       (setf n-val (+ (length array-val) n-val)))
+     (when (< -1 n-val (length array-val))
+       (stack-push
+         (elt array-val n-val)))))
+  ((t)
+   ;; Equality comparison for same types
+   ;; Top two values are discarded for different types
+   (pop-into (a b)
+     (when (eq (type-of a)
+               (type-of b))
+       (stack-push
+         (make-gs-integer
+           (if (equalp a b)
+             1
+             0)))))))
+
 (define-gs-function (|,| :require 1)
   ((gs-integer)
    ;; Range
