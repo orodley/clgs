@@ -43,12 +43,11 @@
                                        `((and
                                            (>= (length *stack*)
                                                ,(length (car arg-case)))
-                                           (every #'identity
-                                                (mapcar (lambda (arg type)
-                                                          (subtypep (type-of arg)
-                                                                    type))
-                                                        (stack-peek ,(length (car arg-case)))
-                                                        (quote ,(car arg-case)))))
+                                           (every (lambda (arg type)
+                                                    (subtypep (type-of arg)
+                                                              type)) 
+                                                  (stack-peek ,(length (car arg-case))) 
+                                                  (quote ,(car arg-case))))
                                          ,@(cdr arg-case)))) 
                                    arg-cases)
                          ;; Fallen through all possible combinations; invalid function call
