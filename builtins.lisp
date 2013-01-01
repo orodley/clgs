@@ -127,6 +127,13 @@
             (stack-push object))
           a-val))))
 
+(define-gs-function (|`| :require 1)
+  ((t)
+   ;; Inverse of ~ like pythons `object`
+   (pop-into (a)
+     (stack-push
+       (gs-repr a)))))
+
 (define-gs-function (! :require 1)
   ((t)
    ;; Boolean NOT, with 0, [] and "" being false

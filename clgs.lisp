@@ -55,8 +55,6 @@
         (add-to-var-table var value *variable-table*)))
 
 ;;; Types
-;;; TODO: Learn CLOS and define these better so that blocks and strings are subclasses of arrays
-;;; It would make lots of the code way simpler
 (defstruct (gs-integer
              (:constructor make-gs-integer (value)))
   (value 0   :type integer))
@@ -73,7 +71,6 @@
 (defun gs-var-value (gs-var)
   "Return the value contained in a golfscript variable"
   (slot-value gs-var 'value))
-
 
 (defun priority (object)
   "Return coercion priority for OBJECT (higher values take precedence)"
@@ -240,5 +237,39 @@
             (gs-block (make-gs-block (concatenate 'string
                                                   (map 'string #'code-char
                                                        value) " ")))))))))
+
+(defun gs-repr (object)
+  "Return the gs-string that returns OBJECT when eval'd in golfscript"
+  (let ((value (gs-var-value object)))
+    (flet ((surround (start-character value end-character)
+             (concatenate 'vector
+                      (vector (gs-integer<-char start-character))
+                      value
+                      (vector (gs-integer<-char end-character)))))
+      (make-gs-string
+        (etypecase object
+          (gs-block
+            (surround #\{ value #\}))
+          (gs-string
+            (surround #\' value #\'))
+          (gs-array
+            (surround #\[
+                      (reduce (lambda (a b)
+                                (concatenate 'vector
+                                             a
+                                             (vector
+                                               (gs-integer<-char
+                                                 #\Space))
+                                             (gs-var-value
+                                               (gs-repr b))))
+                              value
+                              :initial-value (gs-var-value 
+                                               (gs-repr
+                                                 (elt value 0)))
+                              :start 1)
+                      #\]))
+          (gs-integer
+            (map 'vector #'gs-integer<-char
+                 (write-to-string value))))))))
 
 (load "builtins.lisp")
