@@ -81,22 +81,25 @@
   "Call the function denoted by FUN-SYMBOL"
   (funcall (get-from-var-table fun-symbol *variable-table*)))
 
-(defun split-sequence (sequence delimiter)
+(defun split-gs-array (sequence delimiter)
   "Return a vector consisting of SEQUENCE split along DELIMITER"
   ;; TODO: Fix case where delimiter is at the end:
-  ;; (SPLIT-SEQUENCE "a|b|" "|") currently returns #("a" "b|")
+  ;; (split-gs-array "a|b|" "|") currently returns #("a" "b|")
   ;; rather than #("a" "b" "")
-  (let ((delim-length (length delimiter))
-        (sequence-length (length sequence)))
+  (let* ((delim-length (length delimiter))
+         (sequence-val (gs-var-value sequence))
+         (sequence-length (length sequence-val)))
     (apply #'vector
            (loop with index = 0
                  with subseq-start = 0
                  while (< index (- sequence-length
                                    delim-length))
                    if (equalp delimiter
-                              (subseq sequence index
+                              (subseq sequence-val index
                                       (+ index delim-length)))
-                     collect (subseq sequence subseq-start index)
+                     collect (make-same-type
+                               sequence
+                               (subseq sequence-val subseq-start index))
                      and do (progn 
                               (incf index delim-length)
                               (setf subseq-start index))
@@ -105,8 +108,10 @@
                    when (>= index
                             (- sequence-length
                                delim-length))
-                     collect (subseq sequence subseq-start
-                                     sequence-length)))))
+                     collect (make-same-type
+                               sequence
+                               (subseq sequence-val subseq-start
+                                       sequence-length))))))
 
 ;;; Builtin functions
 (define-gs-function (~ :require 1)
@@ -258,6 +263,19 @@
                      joinee-val
                      :key #'vector))))))))
 
+(define-gs-function (/ :require 2)
+  ((gs-integer gs-integer)
+   ;; Truncating integer division
+   (pop-into (a b)
+     (stack-push
+       (make-gs-integer (truncate b-val a-val)))))
+  ((gs-array gs-array)
+   ;; Split array
+   (pop-into (delimiter array)
+     (stack-push
+       (make-gs-array
+         (split-gs-array array delimiter-val))))))
+
 (define-gs-function (% :require 2)
   ((gs-integer gs-integer)
    ;; Modulus
@@ -269,8 +287,8 @@
    (pop-into (delimiter array)
      (stack-push
        (make-gs-array
-         (remove #()
-                 (split-sequence array-val delimiter-val)
+         (remove (make-same-type array #()) 
+                 (split-gs-array array delimiter-val)
                  :test #'equalp))))) 
   ((gs-integer gs-array)
    ;; Select every nth element; like pythons [::n]

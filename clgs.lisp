@@ -70,6 +70,7 @@
 
 (defun gs-var-value (gs-var)
   "Return the value contained in a golfscript variable"
+  (declare (type (or gs-integer gs-array) gs-var))
   (slot-value gs-var 'value))
 
 (defun priority (object)
