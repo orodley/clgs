@@ -43,14 +43,13 @@
                                        `((and
                                            (>= (length *stack*)
                                                ,(length (car arg-case)))
-                                           (every (lambda (arg type)
-                                                    (subtypep (type-of arg)
-                                                              type)) 
+                                           (every #'typep 
                                                   (stack-peek ,(length (car arg-case))) 
                                                   (quote ,(car arg-case))))
                                          ,@(cdr arg-case)))) 
                                    arg-cases)
-                         ;; Fallen through all possible combinations; invalid function call
+                         ;; Fallen through all possible combinations:
+                         ;; invalid function call
                          (t (error "~S called with invalid argument types; didn't ~
                                    match any expected cases:~%~S"
                                    (quote ,name)
@@ -61,7 +60,7 @@
   "Pop the top values of the stack into the variables in VAR-LIST
   in order, and bind their GS-VAR-VALUEs to <VAR>-VAL for each
   <VAR> in VAR-LIST, then execute body."
-  ;; TODO: Remove unused bindings to avoid annoying "defined by never used" warnings
+  ;; TODO: Remove unused bindings to avoid annoying "defined but never used" warnings
   ;; TODO: Possibly add (TYPE-OF VAR) => <VAR>-TYPE bindings?
   `(let* ,(append
            (mapcar (lambda (var)
