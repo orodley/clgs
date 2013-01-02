@@ -378,6 +378,26 @@
                             unless (find item array1-val :test #'equalp)
                             collect item)))))))
 
+(define-gs-function (& :coerce 2)
+  ((gs-integer)
+   ;; Bitwise AND
+   (pop-into (a b)
+     (stack-push
+       (make-gs-integer
+         (logand b-val a-val)))))
+  ((gs-array)
+   ;; Set intersection
+   ;; INTERSECTION can't be used, as order is undefined
+   (pop-into (array1 array2)
+     (stack-push
+       (make-same-type
+         array1
+         (apply #'vector
+                (loop for item across
+                      (remove-duplicates array1-val :test #'equalp)
+                      when (find item array2-val :test #'equalp)
+                      collect item)))))))
+
 (define-gs-function ([)
   ((t)
    ;; Mark stack size
