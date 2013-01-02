@@ -283,6 +283,20 @@
                                                      array-length)
                                                (+ index n-val)
                                                array-length))))))))))
+  ((gs-block gs-block)
+   ;; "Unfold"
+   (pop-into (body condition)
+     (stack-push
+       (make-gs-array
+         (apply #'vector
+                (loop while (progn
+                              (call-gs-fun '|.|)
+                              (execute-gs-string condition-val)
+                              (truth-value (stack-pop)))
+                      collect (stack-elt 0)
+                      do (execute-gs-string body-val)))))
+     (call-gs-fun '|\\|)
+     (call-gs-fun '|;|)))
   ((gs-block gs-array)
    ;; foreach/dolist loop
    (pop-into (block array)
