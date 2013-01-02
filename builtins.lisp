@@ -398,6 +398,30 @@
                       when (find item array2-val :test #'equalp)
                       collect item)))))))
 
+(define-gs-function (^ :coerce 2)
+  ((gs-integer)
+   ;; Bitwise XOR
+   (pop-into (a b)
+     (stack-push
+       (make-gs-integer
+         (logxor b-val a-val)))))
+  ((gs-array)
+   ;; Set difference
+   ;; SET-DIFFERENCE can't be used, as order is undefined
+   (pop-into (array1 array2)
+     (stack-push
+       (let ((array1-no-dupes (remove-duplicates array1-val :test #'equalp))
+             (array2-no-dupes (remove-duplicates array2-val :test #'equalp)))
+         (make-same-type
+           array1
+           (concatenate 'vector
+                        (loop for item across array2-no-dupes
+                              unless (find item array1-no-dupes :test #'equalp)
+                              collect item)
+                        (loop for item across array1-no-dupes
+                              unless (find item array2-no-dupes :test #'equalp)
+                              collect item))))))))
+
 (define-gs-function ([)
   ((t)
    ;; Mark stack size
