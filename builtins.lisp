@@ -361,7 +361,7 @@
                       collecting (stack-pop))))))))
 
 (define-gs-function (|\\| :require 2)
-  ((t)
+  ((t t)
    ;; Swap top two stack elements
    (pop-into (a b)
      (stack-push a b))))
@@ -544,6 +544,32 @@
          (make-same-type array
            (subseq array-val 0 array-end))
          (elt array-val array-end))))))
+
+(define-gs-function (|and| :require 2)
+  ((t t)
+   ;; Short-circuiting boolean and
+   (stack-push (stack-elt 1))
+   (call-gs-fun '|if|)))
+
+(define-gs-function (|or| :require 2)
+  ((t t)
+  ;; Short-circuting bollean or
+  (stack-push (stack-elt 1)) 
+  (call-gs-fun '|\\|)
+  (call-gs-fun '|if|)))
+
+(define-gs-function (|xor| :require 2)
+  ((t t)
+   ;; Boolean exclusive or
+   (pop-into (a b)
+     (stack-push
+       (if (truth-value a)
+         (if (truth-value b)
+           (make-gs-integer 0)
+           a)
+         (if (truth-value b)
+           b
+           (make-gs-integer 0)))))))
 
 (define-gs-function (|rand| :require 1)
   ((gs-integer)
