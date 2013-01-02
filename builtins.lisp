@@ -590,3 +590,34 @@
        (if (typep choice 'gs-block)
          (execute-gs-string (gs-var-value choice))
          (stack-push choice))))))
+
+(define-gs-function (|abs| :require 1)
+  ((gs-integer)
+   ;; Absolute value
+   (pop-into (a)
+     (stack-push
+       (make-gs-integer
+         (abs a-val))))))
+
+(define-gs-function (|base| :require 2)
+  ((gs-integer gs-array)
+   ;; Base conversion
+   (pop-into (radix digit-array)
+     (stack-push
+       (make-gs-integer
+         (let ((*read-base* radix-val))
+           (read-from-string
+             (map 'string
+                  (lambda (digit)
+                    (character
+                      (write-to-string (gs-var-value digit))))
+                  digit-array-val)))))))
+  ((gs-integer gs-integer)
+   (pop-into (radix number)
+     (stack-push
+       (make-gs-array
+         (map 'vector
+              (lambda (digit)
+                (make-gs-integer
+                  (read-from-string (string digit))))
+              (write-to-string number-val :base radix-val)))))))
