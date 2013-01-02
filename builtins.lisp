@@ -607,9 +607,10 @@
    ;; "Uncons"
    (pop-into (array)
      (stack-push
-       (make-gs-array
+       (make-same-type
+         array
          (subseq array-val 1))
-       (elt array 0)))))
+       (elt array-val 0)))))
 
 ;; And again, trick slimv -v
 (define-gs-function #+nil |(| (|)| :require 1)
