@@ -357,8 +357,28 @@
            (execute-gs-string block-val))
      (call-gs-fun ']))))
 
+(define-gs-function (|\|| :coerce 2)
+  ((gs-integer)
+  ;; Bitwise OR
+  (pop-into (a b)
+    (stack-push
+      (make-gs-integer
+        (logior b-val a-val)))))
+  ((gs-array)
+   ;; Set union
+   ;; UNION can't be used, as order is undefined
+   (pop-into (array2 array1)
+     (stack-push
+       (make-same-type
+         array1
+         (concatenate 'vector
+                      (remove-duplicates array1-val :test #'equalp)
+                      (loop for item across
+                            (remove-duplicates array2-val :test #'equalp)
+                            unless (find item array1-val :test #'equalp)
+                            collect item)))))))
+
 (define-gs-function ([)
-  ;; TODO: Fix for nested arrays
   ((t)
    ;; Mark stack size
    (push (length *stack*) *stack-mark*)))
