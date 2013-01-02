@@ -236,14 +236,14 @@
 
 (defun coerce-gs-object (object type)
   "Return OBJECT coerced to TYPE. Signal error if invalid coercion"
-  (if (eql type (type-of object))
+  (if (typep object type)
     object
     (let ((value (gs-var-value object)))
       (etypecase object
         (gs-integer
           (ecase type
             (gs-array  (make-gs-array  (vector value)))
-            (gs-string (make-gs-string (map 'vector #'char-code
+            (gs-string (make-gs-string (map 'vector #'gs-integer<-char
                                             (write-to-string value))))
             (gs-block  (make-gs-block 
                          (concatenate 'string (write-to-string value) " ")))))
