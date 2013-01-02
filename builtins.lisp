@@ -162,30 +162,24 @@
    (pop-into (a)
      (stack-push
        (stack-elt a-val)))) 
-  ((gs-string)
-   ;; Sort 
-   (pop-into (string) 
+  ((gs-block gs-array)
+   ;; Sort array by a mapping, like (SORT SEQUENCE :KEY KEY-BLOCK)
+   (pop-into (block array)
      (stack-push
-       (make-gs-string
-         (sort string-val #'< :key #'gs-var-value)))))
+       (make-same-type array
+                       (sort array-val #'<
+                             :key
+                             (lambda (x)
+                               (stack-push x)
+                               (execute-gs-string block-val)
+                               (gs-var-value (stack-pop))))))))
   ((gs-array)
-   (pop-into (array)
+   ;; Sort 
+   (pop-into (array) 
      (stack-push
-       (make-gs-array
-         (sort array-val #'< :key #'gs-var-value)))))
-  ((gs-block)
-   ;; Sort string or array by a mapping, like:
-   ;; (SORT SEQUENCE :KEY KEY-BLOCK)
-   ;; TODO: Doesn't sort strings correctly
-   (pop-into (block sequence)
-     (stack-push
-       (make-same-type sequence
-         (sort sequence-val #'<
-               :key
-               (lambda (x)
-                 (stack-push x)
-                 (execute-gs-string block-val)
-                 (gs-var-value (stack-pop)))))))))
+       (make-same-type
+         array
+         (sort array-val #'< :key #'gs-var-value))))))
 
 (define-gs-function (+ :coerce 2) 
   ((gs-integer)
