@@ -232,6 +232,14 @@
          (reduce (lambda (a b) 
                    (concatenate 'vector a b)) 
                  (loop repeat n-val collecting array-val))))))
+  ((gs-array gs-integer)
+   (pop-into (array n)
+     (stack-push
+       (make-same-type 
+         array
+         (reduce (lambda (a b) 
+                   (concatenate 'vector a b)) 
+                 (loop repeat n-val collecting array-val))))))
   ((gs-block gs-array)
    ;; Reduce
    (pop-into (block array)
