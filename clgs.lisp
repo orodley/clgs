@@ -166,6 +166,7 @@
   "Execute GS-CODE-STRING as golfscript code, optionally providing
   starting stack values. Print stack on completion"
   (set-stack stack-values)
+  (setf *stack-mark* ())
   (reset-var-table)
   (execute-gs-string gs-code-string)
   (format t "(~{~A~^ ~})"

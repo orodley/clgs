@@ -1,4 +1,4 @@
-(defvar *stack-mark* 0
+(defvar *stack-mark* ()
   "The [ function uses this to mark stack size, and ] slices back to it")
 
 (defvar *builtins* (make-hash-table)
@@ -347,7 +347,7 @@
   ;; TODO: Fix for nested arrays
   ((t)
    ;; Mark stack size
-   (setf *stack-mark* (length *stack*))))
+   (push (length *stack*) *stack-mark*)))
 
 (define-gs-function (])
   ((t)
@@ -357,7 +357,8 @@
        (apply #'vector
               (nreverse
                 (loop repeat (- (length *stack*)
-                                *stack-mark*)
+                                (or (pop *stack-mark*)
+                                    0))
                       collecting (stack-pop))))))))
 
 (define-gs-function (|\\| :require 2)
