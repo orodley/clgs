@@ -114,7 +114,7 @@
   (cl-ppcre:all-matches-as-strings
     ;; TODO: Doesn't tokenize strings with escaped quotes correctly
     ;; ---variable name---------{block}-----'string'----------"string"-------integer-----comment--single character token
-    "[a-zA-Z_][a-zA-Z0-9_]*|{(?:\\.|[^{}])*}|'(?:\\.|[^'])*'?|\"(?:\\.|[^\"])*\"?|-?[0-9]+|#[^\\n\\r]*|."
+    "[a-zA-Z_][a-zA-Z0-9_]*|{(?:\\.|[^{}])*}|'(?:\\.|[^'])*'?|\"(?:\\.|[^\"])*\"?|-?[0-9]+|#[^\\n\\r]*|[^ ]"
     gs-code-string))
 
 (defun read-gs-literal (token-string)
@@ -209,7 +209,6 @@
                                      (gs-var-value var-value)))
                                  (lambda () (stack-push var-value)))
                                *variable-table*)))
-          ((string-equal token " "))
           ((gs-comment-p token))
           (t (error "Unrecognized token ~S" token)))))))
 
