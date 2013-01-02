@@ -83,37 +83,37 @@
   "Call the function denoted by FUN-SYMBOL"
   (funcall (get-from-var-table fun-symbol *variable-table*)))
 
-(defun split-gs-array (sequence delimiter)
-  "Return a vector consisting of SEQUENCE split along DELIMITER"
+(defun split-gs-array (gs-array delimiter)
+  "Return a vector consisting of GS-ARRAY split along DELIMITER"
   ;; TODO: Fix case where delimiter is at the end:
   ;; (SPLIT-GS-ARRAY "a|b|" "|") currently returns #("a" "b|")
   ;; rather than #("a" "b" "")
   (let* ((delim-length (length delimiter))
-         (sequence-val (gs-var-value sequence))
-         (sequence-length (length sequence-val)))
+         (gs-array-val (gs-var-value gs-array))
+         (gs-array-length (length gs-array-val)))
     (apply #'vector
            (loop with index = 0
                  with subseq-start = 0
-                 while (< index (- sequence-length
+                 while (< index (- gs-array-length
                                    delim-length))
                    if (equalp delimiter
-                              (subseq sequence-val index
+                              (subseq gs-array-val index
                                       (+ index delim-length)))
                      collect (make-same-type
-                               sequence
-                               (subseq sequence-val subseq-start index))
+                               gs-array
+                               (subseq gs-array-val subseq-start index))
                      and do (progn 
                               (incf index delim-length)
                               (setf subseq-start index))
                    else
                      do (incf index 1)
                    when (>= index
-                            (- sequence-length
+                            (- gs-array-length
                                delim-length))
                      collect (make-same-type
-                               sequence
-                               (subseq sequence-val subseq-start
-                                       sequence-length))))))
+                               gs-array
+                               (subseq gs-array-val subseq-start
+                                       gs-array-length))))))
 
 ;;; Builtin functions
 (define-gs-function (~ :require 1)
