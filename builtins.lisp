@@ -311,6 +311,18 @@
    (pop-into (a b)
      (stack-push (make-gs-integer
                    (mod b-val a-val)))))
+  ((gs-block gs-array)
+   ;; Map
+   (pop-into (block array)
+     (call-gs-fun '[) 
+     (loop for index below (length array-val) do
+           (stack-push (elt array-val index))
+           (execute-gs-string block-val))
+     (call-gs-fun '])
+     (stack-push
+       (make-same-type
+         array
+         (gs-var-value (stack-pop))))))
   ((gs-array gs-array)
    ;; Array split, with empty elements removed
    (pop-into (delimiter array)
@@ -334,22 +346,7 @@
                   ((minusp n-val)
                    (loop for index from (1- (length array-val)) downto 0 by (abs n-val)
                          collect (elt array-val index)))
-                  (t (error "Zero slice value supplied to %"))))))))
-  ((gs-block gs-array)
-   ;; Map
-   (pop-into (block array)
-     (call-gs-fun '[) 
-     (loop for index below (length array-val) do
-           (stack-push (elt array-val index))
-           (execute-gs-string block-val))
-     (call-gs-fun '])))
-  ((gs-block gs-string)
-   (pop-into (block string)
-     (call-gs-fun '[)
-     (loop for index below (length string-val) do
-           (stack-push (elt string-val index))
-           (execute-gs-string block-val))
-     (call-gs-fun ']))))
+                  (t (error "Zero slice value supplied to %")))))))))
 
 (define-gs-function (|\|| :coerce 2)
   ((gs-integer)
