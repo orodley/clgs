@@ -147,7 +147,7 @@
    (pop-into (a)
      (stack-push
        (make-gs-integer
-         (if (truth-value a-val) 0 1))))))
+         (if (truth-value a) 0 1))))))
 
 (define-gs-function (@ :require 3)
   ((t t t)
