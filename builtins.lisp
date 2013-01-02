@@ -451,7 +451,9 @@
      (stack-push
        (make-same-type
          array
-         (subseq array-val 0 n-val)))))
+         (if (< -1 n-val (length array-val))
+           (subseq array-val 0 n-val)
+           #())))))
   ((gs-integer gs-integer)
    ;; Less-than comparison
    (pop-into (a b)
@@ -481,7 +483,9 @@
      (stack-push
        (make-same-type
          array
-         (subseq array-val n-val (length array-val))))))
+         (if (< -1 n-val (length array-val))
+           (subseq array-val n-val (length array-val))
+           #())))))
   ((gs-integer gs-integer)
    ;; Greater-than comparison
    (pop-into (a b)
