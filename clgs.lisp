@@ -189,16 +189,29 @@
             (map 'string (lambda (gs-int)
                            (char<-gs-integer gs-int))
                  gs-code-string)))
-    (loop for token in (tokenize gs-code-string) do
-          (cond
-            ((gs-literal-p token)
-             (stack-push (read-gs-literal token)))
-            ;; OPTIMIZATION: Loads of duplication here
-            ((get-from-var-table (intern token) *variable-table*)
-             (call-gs-fun (intern token)))
-            ((string-equal token " "))
-            ((gs-comment-p token))
-            (t (error "Unrecognized token ~S" token)))))) 
+    (let ((tokens (tokenize gs-code-string)))
+      (do ((token (pop tokens) (pop tokens)))
+        ((not token))
+        (cond
+          ((gs-literal-p token)
+           (stack-push (read-gs-literal token)))
+          ;; OPTIMIZATION: Loads of duplication here
+          ((get-from-var-table (intern token) *variable-table*)
+           (call-gs-fun (intern token)))
+          ((string-equal token ":")
+           ;; Variables work by adding a closure to the variable table
+           ;; which either executes a block or returns a value
+           (let ((var-value (stack-elt 0)))
+             (add-to-var-table (intern (pop tokens))
+                               (if (gs-block-p var-value)
+                                 (lambda ()
+                                   (execute-gs-string 
+                                     (gs-var-value var-value)))
+                                 (lambda () (stack-push var-value)))
+                               *variable-table*)))
+          ((string-equal token " "))
+          ((gs-comment-p token))
+          (t (error "Unrecognized token ~S" token)))))))
 
 (defun match-arg-type (arg-combinations)
   "Inspect the stack and return the first matching argument combination.
