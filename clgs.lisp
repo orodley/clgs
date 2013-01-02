@@ -182,22 +182,23 @@
   code. Doesn't reset stack or variable table"
   ;; When a non-string vector is passed, it's a gs-string
   ;; of gs-integer char-codes
-  (when (and (vectorp gs-code-string)
-             (not (stringp gs-code-string)))
-    (setf gs-code-string
-          (map 'string (lambda (gs-int)
-                         (char<-gs-integer gs-int))
-               gs-code-string)))
-  (loop for token in (tokenize gs-code-string) do
-        (cond
-          ((gs-literal-p token)
-           (stack-push (read-gs-literal token)))
-          ;; OPTIMIZATION: Loads of duplication here
-          ((get-from-var-table (intern token) *variable-table*)
-           (call-gs-fun (intern token)))
-          ((string-equal token " "))
-          ((gs-comment-p token))
-          (t (error "Unrecognized token ~S" token))))) 
+  (when (plusp (length gs-code-string))
+    (when (and (vectorp gs-code-string)
+               (not (stringp gs-code-string)))
+      (setf gs-code-string
+            (map 'string (lambda (gs-int)
+                           (char<-gs-integer gs-int))
+                 gs-code-string)))
+    (loop for token in (tokenize gs-code-string) do
+          (cond
+            ((gs-literal-p token)
+             (stack-push (read-gs-literal token)))
+            ;; OPTIMIZATION: Loads of duplication here
+            ((get-from-var-table (intern token) *variable-table*)
+             (call-gs-fun (intern token)))
+            ((string-equal token " "))
+            ((gs-comment-p token))
+            (t (error "Unrecognized token ~S" token)))))) 
 
 (defun match-arg-type (arg-combinations)
   "Inspect the stack and return the first matching argument combination.

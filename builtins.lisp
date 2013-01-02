@@ -150,7 +150,7 @@
          (if (truth-value a-val) 0 1))))))
 
 (define-gs-function (@ :require 3)
-  ((t)
+  ((t t t)
    ;; Rotate top 3 stack elements
    ;; 2 3 4 => 3 4 2
    (pop-into (a b c)
