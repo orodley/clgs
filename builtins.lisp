@@ -626,6 +626,23 @@
        (make-gs-integer
          (abs a-val))))))
 
+(define-gs-function (|zip| :require 1)
+  ((gs-array)
+   ;; Transpose rows and columns of arrays
+   ;; In the case of mixed types, output defaults
+   ;; to the type of the first item in the array
+   (pop-into (array)
+     (when (every (lambda (item) (typep item 'gs-array)) array-val)
+       (let ((output-spec (elt array-val 0)))
+         (stack-push 
+           (make-gs-array
+             (apply #'map 'vector
+                    (lambda (&rest items)
+                      (make-same-type
+                        output-spec
+                        (apply #'vector items)))
+                    (map 'list #'gs-var-value array-val)))))))))
+
 (define-gs-function (|base| :require 2)
   ((gs-integer gs-array)
    ;; Base conversion
