@@ -113,8 +113,8 @@
   "Return a list of string tokens from golfscript source."
   (cl-ppcre:all-matches-as-strings
     ;; TODO: Doesn't tokenize strings with escaped quotes correctly
-    ;; ---variable name---------{block}-----'string'----------"string"-------integer-----comment--single character token
-    "[a-zA-Z_][a-zA-Z0-9_]*|{(?:\\.|[^{}])*}|'(?:\\.|[^'])*'?|\"(?:\\.|[^\"])*\"?|-?[0-9]+|#[^\\n\\r]*|[^ ]"
+    ;; ---variable name---------------{block}------------'string'---------"string"-------integer-----comment--single character token
+    "[a-zA-Z_][a-zA-Z0-9_]*|{[^{}]*({[^{}]*})*[^{}]*}|'(?:\\.|[^'])*'?|\"(?:\\.|[^\"])*\"?|-?[0-9]+|#[^\\n\\r]*|[^ ]"
     gs-code-string))
 
 (defun read-gs-literal (token-string)
@@ -129,7 +129,7 @@
                   "([^\\\\]|^)\\\\" (string-trim "'" token-string) "\\1"))))
     (#\{ (make-gs-block
            (map 'vector #'gs-integer<-char
-                (string-trim "{}" token-string))))
+                (subseq token-string 1 (1- (length token-string))))))
     ;; TODO: Doesn't handle some escape sequences i.e. \n
     (#\" (make-gs-string
            (map 'vector #'gs-integer<-char
