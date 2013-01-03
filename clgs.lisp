@@ -109,13 +109,20 @@
 
 ;;; Parsing
 
+(defvar *tokenize-cache* (make-hash-table :test #'equal)
+  "Holds tokenized strings to improve performance when executing a block
+  many times")
+
 (defun tokenize (gs-code-string)
   "Return a list of string tokens from golfscript source."
-  (cl-ppcre:all-matches-as-strings
-    ;; TODO: Doesn't tokenize strings with escaped quotes correctly
-    ;; ---variable name---------------{block}------------'string'---------"string"-------integer-----comment--single character token
-    "[a-zA-Z_][a-zA-Z0-9_]*|{[^{}]*({[^{}]*})*[^{}]*}|'(?:\\.|[^'])*'?|\"(?:\\.|[^\"])*\"?|-?[0-9]+|#[^\\n\\r]*|[^ ]"
-    gs-code-string))
+  (or (gethash gs-code-string *tokenize-cache*)
+      (setf
+        (gethash gs-code-string *tokenize-cache*)
+        (cl-ppcre:all-matches-as-strings
+          ;; TODO: Doesn't tokenize strings with escaped quotes correctly
+          ;; ---variable name---------------{block}------------'string'---------"string"-------integer-----comment--single character token
+          "[a-zA-Z_][a-zA-Z0-9_]*|{[^{}]*({[^{}]*})*[^{}]*}|'(?:\\.|[^'])*'?|\"(?:\\.|[^\"])*\"?|-?[0-9]+|#[^\\n\\r]*|[^ ]"
+          gs-code-string))))
 
 (defun read-gs-literal (token-string)
   "Read a literal string or integer token into a golfscript type.
