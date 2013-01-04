@@ -76,10 +76,10 @@
 (defun priority (object)
   "Return coercion priority for OBJECT (higher values take precedence)"
   (etypecase object
-    (gs-integer 1)
+    (gs-block   4)  
     (gs-string  3)
     (gs-array   2)
-    (gs-block   4)))
+    (gs-integer 1)))
 
 (defun type-of-priority (priority)
   "Return the type mapped to a particular priority"
@@ -252,28 +252,29 @@
             (gs-array  (make-gs-array  (vector value)))
             (gs-string (make-gs-string (map 'vector #'gs-integer<-char
                                             (write-to-string value))))
-            (gs-block  (make-gs-block 
-                         (concatenate 'string (write-to-string value) " ")))))
+            (gs-block  (make-gs-block (gs-var-value
+                                        (coerce-gs-object object 'gs-string))))))
+        (gs-string
+          (ecase type
+            (gs-block (make-gs-block value))))
         (gs-array
           (ecase type
             ;; TODO: This breaks on nested arrays, e.g. [[51 52][53 54]]"55"+
             ;; and non-integer arrays
             (gs-string (make-gs-string value))
             (gs-block  (make-gs-block 
-                         ;; Coerce all elements of the array to
-                         ;; gs-string, and join with " "
                          (reduce (lambda (a b)
-                                   (concatenate 'string a " " b)) 
-                                 (map 'list (lambda (x)
-                                              (gs-var-value 
-                                                (coerce-gs-object x 'gs-string)))
-                                      value)
-                           :from-end t :initial-value "")))))
-        (gs-string
-          (ecase type
-            (gs-block (make-gs-block (concatenate 'string
-                                                  (map 'string #'code-char
-                                                       value) " ")))))))))
+                                   (concatenate
+                                     'vector
+                                     a
+                                     (vector (gs-integer<-char #\Space))
+                                     b))
+                                 value
+                                 :key (lambda (item)
+                                        (gs-var-value
+                                          (coerce-gs-object
+                                            item
+                                            'gs-string))))))))))))
 
 (defun gs-repr (object)
   "Return the gs-string that returns OBJECT when eval'd in golfscript"

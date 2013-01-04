@@ -39,7 +39,7 @@
                        ,require)
              (error "Not enough values on stack for  function ~S: ~
                     expected >=~D, got ~D"
-             (quote ,name) ,require (length *stack*))))
+                    (quote ,name) ,require (length *stack*))))
      (cond
        ;; Set up cond clauses for each arg type combination
        ,@(mapcar (lambda (arg-case)
@@ -187,11 +187,19 @@
    (pop-into (a b)
      (stack-push (make-gs-integer
                    (+ b-val a-val)))))
+  ((gs-block)
+   (pop-into (a b)
+     ;; Concatenate with space
+     (stack-push (make-same-type
+                   a
+                   (concatenate 'vector
+                                b-val
+                                (vector (gs-integer<-char #\Space))
+                                a-val)))))
   ((gs-array)
    (pop-into (a b)
-     ;; Concatenate
-     (stack-push (make-same-type a
-                   (concatenate 'vector b-val a-val))))))
+     ;; Concatenate without space
+     (stack-push (make-same-type a (concatenate 'vector b-val a-val))))))
 
 (define-gs-function (- :coerce 2)
   ((gs-integer)
