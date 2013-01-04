@@ -136,7 +136,7 @@
 
 (define-gs-function (|`| :require 1)
   ((t)
-   ;; Inverse of ~ like pythons `object`
+   ;; Inverse of ~ like pythons `object` or repr(object)
    (pop-into (a)
      (stack-push
        (gs-repr a)))))

@@ -219,18 +219,6 @@
           ((gs-comment-p token))
           (t (error "Unrecognized token ~S" token)))))))
 
-(defun match-arg-type (arg-combinations)
-  "Inspect the stack and return the first matching argument combination.
-  Signal an error if no combinations match"
-  (or (loop for arg-combination in arg-combinations
-            when (loop for arg-type    in arg-combination
-                       for stack-value in *stack*
-                       always (eq arg-type
-                                  (type-of stack-value)))
-            return arg-combination)
-      (error "No matching argument combination in stack for ~S"
-             arg-combinations)))
-
 (defun coerce-args (args)
   "Given a list of arguments, coerce all to highest priority type"
   (let ((highest-priority-type

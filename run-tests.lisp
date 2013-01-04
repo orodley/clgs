@@ -1,4 +1,4 @@
-;;;; Runs all tests from "test-cases.txt"
+;;;; Runs all tests from "test-cases.lisp"
 (load "clgs.lisp")
 
 (loop for test-case in (with-open-file (file #P"test-cases.lisp")
