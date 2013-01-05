@@ -56,16 +56,20 @@
 
 ;;; Types
 (defstruct (gs-integer
-             (:constructor make-gs-integer (value)))
+             (:constructor make-gs-integer-from (value))
+             (:constructor make-gs-integer))
   (value 0   :type integer))
 (defstruct (gs-array
-             (:constructor make-gs-array   (value)))
+             (:constructor make-gs-array-from   (value))
+             (:constructor make-gs-array))
   (value #() :type vector))
 (defstruct (gs-string
-             (:constructor make-gs-string  (value))
+             (:constructor make-gs-string-from  (value))
+             (:constructor make-gs-string)
              (:include gs-array)))
 (defstruct (gs-block
-             (:constructor make-gs-block   (value))
+             (:constructor make-gs-block-from   (value))
+             (:constructor make-gs-block)
              (:include gs-string)))
 
 (defun gs-var-value (gs-var)
@@ -94,18 +98,18 @@
   Lists get converted into GS-ARRAYs. Strings will always get turned into 
   GS-STRINGs - never blocks"
   (etypecase object
-    (integer (make-gs-integer object))
-    (string  (make-gs-string  object))  
-    (vector  (make-gs-array   object))
-    (list    (make-gs-array   (vector object)))))
+    (integer (make-gs-integer-from object))
+    (string  (make-gs-string-from  object))  
+    (vector  (make-gs-array-from   object))
+    (list    (make-gs-array-from   (vector object)))))
 
 (defun make-same-type (gs-object value)
   "Return a new gs-object containing VALUE of the same type as GS-OBJECT"
   (etypecase gs-object
-    (gs-block   (make-gs-block value))
-    (gs-string  (make-gs-string value))
-    (gs-array   (make-gs-array value))
-    (gs-integer (make-gs-integer value))))
+    (gs-block   (make-gs-block-from value))
+    (gs-string  (make-gs-string-from value))
+    (gs-array   (make-gs-array-from value))
+    (gs-integer (make-gs-integer-from value))))
 
 ;;; Parsing
 
@@ -130,22 +134,22 @@
   as built-in functions."
   (declare (type string token-string))
   (case (char token-string 0)
-    (#\' (make-gs-string
+    (#\' (make-gs-string-from
            (map 'vector #'gs-integer<-char
                 (cl-ppcre:regex-replace-all 
                   "([^\\\\]|^)\\\\" (string-trim "'" token-string) "\\1"))))
-    (#\{ (make-gs-block
+    (#\{ (make-gs-block-from
            (map 'vector #'gs-integer<-char
                 (subseq token-string 1 (1- (length token-string))))))
     ;; TODO: Doesn't handle some escape sequences i.e. \n
-    (#\" (make-gs-string
+    (#\" (make-gs-string-from
            (map 'vector #'gs-integer<-char
                 (string-trim "\"" token-string))))
-    (otherwise (make-gs-integer 
+    (otherwise (make-gs-integer-from 
                  (read-from-string token-string)))))
 
 (defun gs-integer<-char (char)
-  (make-gs-integer (char-code char)))
+  (make-gs-integer-from (char-code char)))
 
 (defun char<-gs-integer (gs-int)
   (code-char (gs-var-value gs-int)))
@@ -176,13 +180,17 @@
   (setf *stack-mark* ())
   (reset-var-table)
   (execute-gs-string gs-code-string)
+  (pretty-print-stack *stack*))
+
+(defun pretty-print-stack (stack)
+  "Print each item on the stack in its GS-REPR form"
   (format t "(~{~A~^ ~})"
           (mapcar (lambda (gs-object)
                     (map 'string
                          #'char<-gs-integer
                          (gs-var-value
                            (gs-repr gs-object))))
-                  (reverse *stack*))))
+                  (reverse stack))))
 
 (defun execute-gs-string (gs-code-string)
   "Execute string or vector of gs-integer char-codes as golfscript
@@ -205,7 +213,7 @@
           ;; OPTIMIZATION: Loads of duplication here
           ((get-from-var-table (intern token) *variable-table*)
            (call-gs-fun (intern token)))
-          ((string-equal token ":")
+          ((string= token ":")
            ;; Variables work by adding a closure to the variable table
            ;; which either executes a block or returns a value
            (let ((var-value (stack-elt 0)))
@@ -218,6 +226,37 @@
                                *variable-table*)))
           ((gs-comment-p token))
           (t (error "Unrecognized token ~S" token)))))))
+
+(defun compile-gs-string (gs-code-string)
+  "Return a lambda function which executes the golfscript program
+  in GS-CODE-STRING. As much work as possible is done at compile-time"
+  (let ((lambda-body ())
+        (tokens (tokenize gs-code-string)))
+    (do ((token (pop tokens) (pop tokens)))
+      ((not token))
+      (push
+        (cond
+          ((gs-literal-p token)
+           `(stack-push ,(read-gs-literal token)))
+          ((get-from-var-table (intern token) *variable-table*)
+           `(call-gs-fun (quote ,(intern token))))
+          ((string= token ":")
+           (let ((name (intern (pop tokens))))
+             ;; Prototype the variable so that later references during
+             ;; compilation are recognized as a valid token
+             (add-to-var-table name t *variable-table*)
+             `(let ((var-value (stack-elt 0)))
+                (add-to-var-table (quote ,name)
+                                  (if (gs-block-p var-value)
+                                    (lambda ()
+                                      (execute-gs-string
+                                        (gs-var-value var-value)))
+                                    (lambda () (stack-push var-value)))
+                                  *variable-table*))))
+          ((gs-comment-p token))
+          (t (error "Unrecognized token ~S" token)))
+        lambda-body))
+    (eval `(lambda () ,@(reverse lambda-body)))))
 
 (defun coerce-args (args)
   "Given a list of arguments, coerce all to highest priority type"
@@ -237,20 +276,20 @@
       (etypecase object
         (gs-integer
           (ecase type
-            (gs-array  (make-gs-array  (vector value)))
-            (gs-string (make-gs-string (map 'vector #'gs-integer<-char
+            (gs-array  (make-gs-array-from  (vector value)))
+            (gs-string (make-gs-string-from (map 'vector #'gs-integer<-char
                                             (write-to-string value))))
-            (gs-block  (make-gs-block (gs-var-value
+            (gs-block  (make-gs-block-from (gs-var-value
                                         (coerce-gs-object object 'gs-string))))))
         (gs-string
           (ecase type
-            (gs-block (make-gs-block value))))
+            (gs-block (make-gs-block-from value))))
         (gs-array
           (ecase type
             ;; TODO: This breaks on nested arrays, e.g. [[51 52][53 54]]"55"+
             ;; and non-integer arrays
-            (gs-string (make-gs-string value))
-            (gs-block  (make-gs-block 
+            (gs-string (make-gs-string-from value))
+            (gs-block  (make-gs-block-from 
                          (reduce (lambda (a b)
                                    (concatenate
                                      'vector
@@ -272,7 +311,7 @@
                       (vector (gs-integer<-char start-character))
                       value
                       (vector (gs-integer<-char end-character)))))
-      (make-gs-string
+      (make-gs-string-from
         (etypecase object
           (gs-block
             (surround #\{ value #\}))

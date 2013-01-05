@@ -120,7 +120,7 @@
   ((gs-integer)
    ;; Bitwise not
    (pop-into (a)
-     (stack-push (make-gs-integer
+     (stack-push (make-gs-integer-from
                    (lognot a-val))))) 
   ((gs-string) 
    ;; Eval
@@ -146,7 +146,7 @@
    ;; Boolean NOT, with 0, [] and "" being false
    (pop-into (a)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (if (truth-value a) 0 1))))))
 
 (define-gs-function (@ :require 3)
@@ -185,7 +185,7 @@
   ((gs-integer)
    ;; Add
    (pop-into (a b)
-     (stack-push (make-gs-integer
+     (stack-push (make-gs-integer-from
                    (+ b-val a-val)))))
   ((gs-block)
    (pop-into (a b)
@@ -205,12 +205,12 @@
   ((gs-integer)
    ;; Subtraction
    (pop-into (a b)
-     (stack-push (make-gs-integer
+     (stack-push (make-gs-integer-from
                    (- b-val a-val)))))
   ((gs-array)
    ;; Array difference
    (pop-into (a b)
-     (stack-push (make-gs-array
+     (stack-push (make-gs-array-from
                    (delete-if (lambda (item)
                                 (find item a-val
                                       :test #'equalp))
@@ -220,7 +220,7 @@
   ((gs-integer gs-integer)
    ;; Multiplication
    (pop-into (a b)
-     (stack-push (make-gs-integer
+     (stack-push (make-gs-integer-from
                    (* b-val a-val)))))
   ((gs-block gs-integer)
    ;; Execute block n times
@@ -277,13 +277,13 @@
    ;; Truncating integer division
    (pop-into (a b)
      (stack-push
-       (make-gs-integer (truncate b-val a-val)))))
+       (make-gs-integer-from (truncate b-val a-val)))))
   ((gs-integer gs-array)
    ;; Split into groups of size n
    (pop-into (n array)
      (let ((array-length (length array-val)))
        (stack-push
-         (make-gs-array
+         (make-gs-array-from
            (apply #'vector
                   (loop for index below array-length by n-val
                         collecting (make-same-type
@@ -297,7 +297,7 @@
    ;; "Unfold"
    (pop-into (body condition)
      (stack-push
-       (make-gs-array
+       (make-gs-array-from
          (apply #'vector
                 (loop while (progn
                               (call-gs-fun '|.|)
@@ -318,14 +318,14 @@
    ;; Split array
    (pop-into (delimiter array)
      (stack-push
-       (make-gs-array
+       (make-gs-array-from
          (split-gs-array array delimiter-val))))))
 
 (define-gs-function (% :require 2)
   ((gs-integer gs-integer)
    ;; Modulus
    (pop-into (a b)
-     (stack-push (make-gs-integer
+     (stack-push (make-gs-integer-from
                    (mod b-val a-val)))))
   ((gs-block gs-array)
    ;; Map
@@ -343,7 +343,7 @@
    ;; Array split, with empty elements removed
    (pop-into (delimiter array)
      (stack-push
-       (make-gs-array
+       (make-gs-array-from
          (remove (make-same-type array #()) 
                  (split-gs-array array delimiter-val)
                  :test #'equalp))))) 
@@ -369,7 +369,7 @@
   ;; Bitwise OR
   (pop-into (a b)
     (stack-push
-      (make-gs-integer
+      (make-gs-integer-from
         (logior b-val a-val)))))
   ((gs-array)
    ;; Set union
@@ -390,7 +390,7 @@
    ;; Bitwise AND
    (pop-into (a b)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (logand b-val a-val)))))
   ((gs-array)
    ;; Set intersection
@@ -410,7 +410,7 @@
    ;; Bitwise XOR
    (pop-into (a b)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (logxor b-val a-val)))))
   ((gs-array)
    ;; Set difference
@@ -438,7 +438,7 @@
   ((t)
    ;; Slice stack back to mark
    (stack-push
-     (make-gs-array
+     (make-gs-array-from
        (apply #'vector
               (nreverse
                 (loop repeat (- (length *stack*)
@@ -474,14 +474,14 @@
    ;; Less-than comparison
    (pop-into (a b)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (if (< b-val a-val)
            1
            0)))))
   ((gs-array gs-array)
    (pop-into (array1 array2)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (if (some (lambda (a b)
                      (< (gs-var-value a)
                         (gs-var-value b)))
@@ -506,14 +506,14 @@
    ;; Greater-than comparison
    (pop-into (a b)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (if (> b-val a-val)
            1
            0)))))
   ((gs-array gs-array)
    (pop-into (array1 array2)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (if (some (lambda (a b)
                      (> (gs-var-value a)
                         (gs-var-value b)))
@@ -539,7 +539,7 @@
      (when (eq (type-of a)
                (type-of b))
        (stack-push
-         (make-gs-integer
+         (make-gs-integer-from
            (if (equalp a b)
              1
              0)))))))
@@ -551,8 +551,8 @@
      (let ((range-vector (make-array a-val)))
        (loop for n below a-val do
              (setf (elt range-vector n)
-                   (make-gs-integer n)))
-       (stack-push (make-gs-array range-vector)))))
+                   (make-gs-integer-from n)))
+       (stack-push (make-gs-array-from range-vector)))))
   ((gs-block gs-array)
    ;; Filter
    (pop-into (predicate array)
@@ -567,7 +567,7 @@
   ((gs-array)
    ;; Array size
    (pop-into (a)
-     (stack-push (make-gs-integer
+     (stack-push (make-gs-integer-from
                    (length a-val))))))
 
 (define-gs-function (|.| :require 1)
@@ -583,7 +583,7 @@
    ;; Raise an integer to a power
    (pop-into (a b)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (expt b-val a-val)))))
   ((gs-block gs-array)
    ;; FIND-IF
@@ -598,7 +598,7 @@
    ;; POSITION
    (pop-into (array item)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (or (position item array-val :test #'equalp)
              -1))))))
 
@@ -610,7 +610,7 @@
    ;; Decrement
    (pop-into (a)
      (stack-push
-       (make-gs-integer (1- a-val)))))
+       (make-gs-integer-from (1- a-val)))))
   ((gs-array)
    ;; "Uncons"
    (pop-into (array)
@@ -626,7 +626,7 @@
    ;; Increment
    (pop-into (a)
      (stack-push
-       (make-gs-integer (1+ a-val)))))
+       (make-gs-integer-from (1+ a-val)))))
   ((gs-array)
    ;; "Uncons" from right
    (pop-into (array)
@@ -656,18 +656,18 @@
      (stack-push
        (if (truth-value a)
          (if (truth-value b)
-           (make-gs-integer 0)
+           (make-gs-integer-from 0)
            a)
          (if (truth-value b)
            b
-           (make-gs-integer 0)))))))
+           (make-gs-integer-from 0)))))))
 
 (define-gs-function (|rand| :require 1)
   ((gs-integer)
    ;; Random integer from 0 below n
    (pop-into (n)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (random n-val))))))
 
 (define-gs-function (|do| :require 1)
@@ -713,7 +713,7 @@
    ;; Absolute value
    (pop-into (a)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (abs a-val))))))
 
 (define-gs-function (|zip| :require 1)
@@ -725,7 +725,7 @@
      (when (every (lambda (item) (typep item 'gs-array)) array-val)
        (let ((output-spec (elt array-val 0)))
          (stack-push 
-           (make-gs-array
+           (make-gs-array-from
              (apply #'map 'vector
                     (lambda (&rest items)
                       (make-same-type
@@ -738,7 +738,7 @@
    ;; Base conversion
    (pop-into (radix digit-array)
      (stack-push
-       (make-gs-integer
+       (make-gs-integer-from
          (let ((*read-base* radix-val))
            (read-from-string
              (map 'string
@@ -749,9 +749,9 @@
   ((gs-integer gs-integer)
    (pop-into (radix number)
      (stack-push
-       (make-gs-array
+       (make-gs-array-from
          (map 'vector
               (lambda (digit)
-                (make-gs-integer
+                (make-gs-integer-from
                   (read-from-string (string digit))))
               (write-to-string number-val :base radix-val)))))))
