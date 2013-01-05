@@ -28,6 +28,8 @@
   `(add-to-var-table
      ',name
      (lambda ()
+       (declare (type list *stack*))
+       (declare (optimize (speed 2)))
        ;; Coerce args if necessary
        ,(when (plusp coerce)
           `(loop for coerced-arg in 
@@ -46,6 +48,7 @@
        ;; Set up cond clauses for each arg type combination
        ,@(mapcar
            (lambda (arg-case)
+             (declare (type list arg-case))
              (flet 
                ((pop-into-expansion (var-list body)
                   "Generates the macroexpansion for the POP-INTO
@@ -55,10 +58,14 @@
                   VAR-LIST, then execute body."
                   ;; TODO: Remove unused bindings to avoid
                   ;; annoying "defined but never used" warnings
+                  (declare (type list var-list body))
                   `(let* ,(append
-                           (mapcar (lambda (var) `(,var (stack-pop)))
+                           (mapcar (lambda (var)
+                                     (declare (type symbol var))
+                                     `(,var (stack-pop)))
                                    var-list)
                            (mapcar (lambda (var)
+                                     (declare (type symbol var))
                                      `(,(intern (concatenate 'string
                                                              (string var)
                                                              "-VAL"))
@@ -73,7 +80,7 @@
                              `(declare (type ,(case type
                                                 (gs-integer 'integer)
                                                 (t          't)
-                                                (otherwise  'vector))
+                                                (otherwise  'simple-vector))
                                              ,(intern (concatenate 'string
                                                                    (string var)
                                                                    "-VAL")))))
@@ -82,7 +89,8 @@
                     t
                     `(and (>= (length *stack*) ,(length (car arg-case)))
                           (every #'typep 
-                                 (stack-peek ,(length (car arg-case))) 
+                                 (the list 
+                                      (stack-peek ,(length (car arg-case)))) 
                                  ',(car arg-case)))) 
                   ,@(if (eq (caadr arg-case) 'pop-into)
                       `(,(pop-into-expansion (cadadr arg-case) (cddadr arg-case)))
@@ -208,14 +216,14 @@
      ;; Concatenate with space
      (stack-push (make-same-type
                    a
-                   (concatenate 'vector
+                   (concatenate 'simple-vector
                                 b-val
                                 (vector (gs-integer<-char #\Space))
                                 a-val)))))
   ((gs-array)
    (pop-into (a b)
      ;; Concatenate without space
-     (stack-push (make-same-type a (concatenate 'vector b-val a-val))))))
+     (stack-push (make-same-type a (concatenate 'simple-vector b-val a-val))))))
 
 (define-gs-function (- :coerce 2)
   ((gs-integer)
@@ -254,7 +262,7 @@
        (make-same-type 
          array
          (reduce (lambda (a b) 
-                   (concatenate 'vector a b)) 
+                   (concatenate 'simple-vector a b)) 
                  (loop repeat n-val collecting array-val))))))
   ((gs-array gs-integer)
    (pop-into (array n)
@@ -262,7 +270,7 @@
        (make-same-type 
          array
          (reduce (lambda (a b) 
-                   (concatenate 'vector a b)) 
+                   (concatenate 'simple-vector a b)) 
                  (loop repeat n-val collecting array-val))))))
   ((gs-block gs-array)
    ;; Reduce
@@ -284,7 +292,7 @@
            (make-same-type 
              joinee
              (reduce (lambda (a b)
-                       (concatenate 'vector a joiner-val b))
+                       (concatenate 'simple-vector a joiner-val b))
                      joinee-val
                      :key #'vector))))))))
 
@@ -394,7 +402,7 @@
      (stack-push
        (make-same-type
          array1
-         (concatenate 'vector
+         (concatenate 'simple-vector
                       (remove-duplicates array1-val :test #'equalp)
                       (loop for item across
                             (remove-duplicates array2-val :test #'equalp)
@@ -435,9 +443,10 @@
      (stack-push
        (let ((array1-no-dupes (remove-duplicates array1-val :test #'equalp))
              (array2-no-dupes (remove-duplicates array2-val :test #'equalp)))
+         (declare (simple-vector array1-no-dupes array2-no-dupes))
          (make-same-type
            array1
-           (concatenate 'vector
+           (concatenate 'simple-vector
                         (loop for item across array2-no-dupes
                               unless (find item array1-no-dupes :test #'equalp)
                               collect item)
@@ -499,8 +508,8 @@
      (stack-push
        (make-gs-integer-from
          (if (some (lambda (a b)
-                     (< (gs-var-value a)
-                        (gs-var-value b)))
+                     (< (the integer (gs-var-value a))
+                        (the integer (gs-var-value b))))
                    array2-val array1-val)
            1
            0))))))
@@ -742,7 +751,7 @@
        (let ((output-spec (elt array-val 0)))
          (stack-push 
            (make-gs-array-from
-             (apply #'map 'vector
+             (apply #'map 'simple-vector
                     (lambda (&rest items)
                       (make-same-type
                         output-spec
@@ -766,7 +775,7 @@
    (pop-into (radix number)
      (stack-push
        (make-gs-array-from
-         (map 'vector
+         (map 'simple-vector
               (lambda (digit)
                 (make-gs-integer-from
                   (read-from-string (string digit))))

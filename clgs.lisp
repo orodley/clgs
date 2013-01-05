@@ -8,6 +8,7 @@
 
 (defun stack-push (object &rest more-objects)
   "Push all args onto the golfscript stack."
+  (declare (list *stack*))
   (push object *stack*)
   (when more-objects
     (loop for object in more-objects do
@@ -15,19 +16,24 @@
 
 (defun stack-pop  ()
   "Pop the top item off the golfscript stack and return it."
+  (declare (list *stack*))
   (pop *stack*))
 
 (defun stack-peek (&optional (depth 1))
   "Return the first DEPTH elements from the top of the golfscript
   stack, without modifiying it."
+  (declare (list *stack*))
   (subseq *stack* 0 depth))
 
 (defun stack-elt (index)
   "Return the element at position INDEX in the stack"
+  (declare (list *stack*))
   (elt *stack* index))
 
 (defun set-stack (stack-values)
   "Remove all current stack values and set stack to the values in STACK-VALUES"
+  (declare (list *stack*))
+  (declare (list stack-values))
   (setf *stack* stack-values))
 
 ;;; Variable table & related functions
@@ -37,15 +43,21 @@
 
 (defun add-to-var-table (name value table)
   "Add VALUE to TABLE under key NAME"
+  (declare (symbol name))
+  (declare (function value))
+  (declare (hash-table table))
   (setf (gethash name table) value))
 
 (defun get-from-var-table (name table)
   "Retrieve the entry in TABLE stored under NAME. Secondary return value
   indicates whether NAME was found"
-  (gethash name table))
+  (declare (symbol name))
+  (declare (hash-table table))
+  (the function (gethash name table)))
 
 (defun clear-var-table (table)
   "Removes all values from TABLE"
+  (declare (hash-table table))
   (clrhash table))
 
 (defun reset-var-table ()
@@ -62,7 +74,7 @@
 (defstruct (gs-array
              (:constructor make-gs-array-from   (value))
              (:constructor make-gs-array))
-  (value #() :type vector))
+  (value #() :type simple-vector))
 (defstruct (gs-string
              (:constructor make-gs-string-from  (value))
              (:constructor make-gs-string)
@@ -135,15 +147,15 @@
   (declare (type string token-string))
   (case (char token-string 0)
     (#\' (make-gs-string-from
-           (map 'vector #'gs-integer<-char
+           (map 'simple-vector #'gs-integer<-char
                 (cl-ppcre:regex-replace-all 
                   "([^\\\\]|^)\\\\" (string-trim "'" token-string) "\\1"))))
     (#\{ (make-gs-block-from
-           (map 'vector #'gs-integer<-char
+           (map 'simple-vector #'gs-integer<-char
                 (subseq token-string 1 (1- (length token-string))))))
     ;; TODO: Doesn't handle some escape sequences i.e. \n
     (#\" (make-gs-string-from
-           (map 'vector #'gs-integer<-char
+           (map 'simple-vector #'gs-integer<-char
                 (string-trim "\"" token-string))))
     (otherwise (make-gs-integer-from 
                  (read-from-string token-string)))))
@@ -208,6 +220,7 @@
       (do ((token (pop tokens) (pop tokens)))
         ((not token))
         (cond
+          ((gs-comment-p token))
           ((gs-literal-p token)
            (stack-push (read-gs-literal token)))
           ;; OPTIMIZATION: Loads of duplication here
@@ -224,7 +237,6 @@
                                      (gs-var-value var-value)))
                                  (lambda () (stack-push var-value)))
                                *variable-table*)))
-          ((gs-comment-p token))
           (t (error "Unrecognized token ~S" token)))))))
 
 (defun compile-gs-string (gs-code-string)
@@ -277,7 +289,8 @@
         (gs-integer
           (ecase type
             (gs-array  (make-gs-array-from  (vector value)))
-            (gs-string (make-gs-string-from (map 'vector #'gs-integer<-char
+            (gs-string (make-gs-string-from (map 'simple-vector
+                                                 #'gs-integer<-char
                                             (write-to-string value))))
             (gs-block  (make-gs-block-from (gs-var-value
                                         (coerce-gs-object object 'gs-string))))))
@@ -292,7 +305,7 @@
             (gs-block  (make-gs-block-from 
                          (reduce (lambda (a b)
                                    (concatenate
-                                     'vector
+                                     'simple-vector
                                      a
                                      (vector (gs-integer<-char #\Space))
                                      b))
@@ -307,7 +320,7 @@
   "Return the gs-string that returns OBJECT when eval'd in golfscript"
   (let ((value (gs-var-value object)))
     (flet ((surround (start-character value end-character)
-             (concatenate 'vector
+             (concatenate 'simple-vector
                       (vector (gs-integer<-char start-character))
                       value
                       (vector (gs-integer<-char end-character)))))
@@ -322,7 +335,7 @@
                       (if (zerop (length value))
                         #()
                         (reduce (lambda (a b)
-                                (concatenate 'vector
+                                (concatenate 'simple-vector
                                              a
                                              (vector (gs-integer<-char #\Space))
                                              (gs-var-value (gs-repr b))))
@@ -331,7 +344,7 @@
                               :start 1))
                       #\]))
           (gs-integer
-            (map 'vector #'gs-integer<-char
+            (map 'simple-vector #'gs-integer<-char
                  (write-to-string value))))))))
 
 (load "builtins.lisp")
