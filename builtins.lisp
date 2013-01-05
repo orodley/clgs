@@ -4,6 +4,8 @@
 (defvar *builtins* (make-hash-table)
   "Holds all builtin functions and variables")
 
+;;; TODO: This macro is getting really long and messy
+;;; maybe delegate some of the expansion to helper functions?
 (defmacro define-gs-function ((name &key (coerce 0) (require 0)) &body arg-cases)
   "Define a builtin function and insert it into *builtins*.
   Each case defines a different function to perform depending
@@ -24,7 +26,7 @@
                a valid golfscript type"
                name type))))
   `(add-to-var-table
-     (quote ,name)
+     ',name
      (lambda ()
        ;; Coerce args if necessary
        ,(when (plusp coerce)
@@ -39,45 +41,59 @@
                        ,require)
              (error "Not enough values on stack for  function ~S: ~
                     expected >=~D, got ~D"
-                    (quote ,name) ,require (length *stack*))))
+                    ',name ,require (length *stack*))))
      (cond
        ;; Set up cond clauses for each arg type combination
-       ,@(mapcar (lambda (arg-case)
-                   (if (equal (car arg-case) '(t))
-                     `(t ,@(cdr arg-case))
-                     `((and
-                         (>= (length *stack*)
-                             ,(length (car arg-case)))
-                         (every #'typep 
-                                (stack-peek ,(length (car arg-case))) 
-                                (quote ,(car arg-case))))
-                       ,@(cdr arg-case)))) 
-                 arg-cases)
+       ,@(mapcar
+           (lambda (arg-case)
+             (flet 
+               ((pop-into-expansion (var-list body)
+                  "Generates the macroexpansion for the POP-INTO
+                  macro; pop the top values of the stack into the
+                  variables in VAR-LIST in order, and bind their
+                  GS-VAR-VALUEs to <VAR>-VAL for each <VAR> in
+                  VAR-LIST, then execute body."
+                  ;; TODO: Remove unused bindings to avoid
+                  ;; annoying "defined but never used" warnings
+                  `(let* ,(append
+                           (mapcar (lambda (var) `(,var (stack-pop)))
+                                   var-list)
+                           (mapcar (lambda (var)
+                                     `(,(intern (concatenate 'string
+                                                             (string var)
+                                                             "-VAL"))
+                                        (gs-var-value ,var)))
+                                   var-list))
+                     ,@(loop for var  in var-list
+                             for type in (car arg-case)
+                             collecting `(declare (type ,type ,var)))
+                     ,@(loop for var  in var-list
+                             for type in (car arg-case)
+                             collecting
+                             `(declare (type ,(case type
+                                                (gs-integer 'integer)
+                                                (t          't)
+                                                (otherwise  'vector))
+                                             ,(intern (concatenate 'string
+                                                                   (string var)
+                                                                   "-VAL")))))
+                     ,@body)))
+               `(,(if (equal (car arg-case) '(t))
+                    t
+                    `(and (>= (length *stack*) ,(length (car arg-case)))
+                          (every #'typep 
+                                 (stack-peek ,(length (car arg-case))) 
+                                 ',(car arg-case)))) 
+                  ,@(if (eq (caadr arg-case) 'pop-into)
+                      `(,(pop-into-expansion (cadadr arg-case) (cddadr arg-case)))
+                      (cdr arg-case))))) 
+           arg-cases)
        ;; Fallen through all possible combinations: invalid function call
        (t (error "~S called with invalid argument types; didn't ~
                  match any expected cases:~%~S"
                  (quote ,name)
                  (quote ,(mapcar #'car arg-cases))))))
-  *builtins*))
-
-(defmacro pop-into (var-list &body body)
-  "Pop the top values of the stack into the variables in VAR-LIST
-  in order, and bind their GS-VAR-VALUEs to <VAR>-VAL for each
-  <VAR> in VAR-LIST, then execute body."
-  ;; TODO: Remove unused bindings to avoid annoying "defined but never used" warnings
-  ;; TODO: Possibly add (TYPE-OF VAR) => <VAR>-TYPE bindings?
-  `(let* ,(append
-           (mapcar (lambda (var)
-                     `(,var (stack-pop)))
-                   var-list)
-           (mapcar (lambda (var)
-                     `(,(intern
-                          (concatenate 'string
-                                       (string var)
-                                       "-VAL"))
-                        (gs-var-value ,var)))
-                   var-list))
-     ,@body))
+           *builtins*))
 
 (defun call-gs-fun (fun-symbol)
   "Call the function denoted by FUN-SYMBOL"
