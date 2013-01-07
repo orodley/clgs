@@ -79,7 +79,7 @@
                              collecting
                              `(declare (type ,(case type
                                                 (gs-integer 'integer)
-                                                (t          't)
+                                                ((t)        't)
                                                 (otherwise  'simple-vector))
                                              ,(intern (concatenate 'string
                                                                    (string var)

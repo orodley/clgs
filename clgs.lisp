@@ -134,11 +134,37 @@
   (or (gethash gs-code-string *tokenize-cache*)
       (setf
         (gethash gs-code-string *tokenize-cache*)
-        (cl-ppcre:all-matches-as-strings
-          ;; TODO: Doesn't tokenize strings with escaped quotes correctly
-          ;; ---variable name---------------{block}------------'string'---------"string"-------integer-----comment--single character token
-          "[a-zA-Z_][a-zA-Z0-9_]*|{[^{}]*({[^{}]*})*[^{}]*}|'(?:\\.|[^'])*'?|\"(?:\\.|[^\"])*\"?|-?[0-9]+|#[^\\n\\r]*|[^ ]"
-          gs-code-string))))
+        (let 
+          ((tokens 
+             (cl-ppcre:all-matches-as-strings
+               ;; TODO: Doesn't tokenize strings with escaped quotes correctly
+               ;; ---variable name---------'string'---------"string"-------integer-----comment--single character token
+               "[a-zA-Z_][a-zA-Z0-9_]*|'(?:\\.|[^'])*'?|\"(?:\\.|[^\"])*\"?|-?[0-9]+|#[^\\n\\r]*|[^ ]"
+               gs-code-string)))
+          (do ((processed-tokens ()
+                                 (cons
+                                   (if (string= (car tokens) "{")
+                                     (reduce (lambda (a b)
+                                               (concatenate 'string a b))
+                                             (loop for token = (pop tokens)
+                                                   with {}-count = 0
+                                                   collecting token 
+                                                   when (string= token "{")
+                                                     do (incf {}-count)
+                                                   when (string= token "}")
+                                                     do (decf {}-count)
+                                                   until (or (zerop {}-count)
+                                                             (null tokens))
+                                                   finally
+                                                   (unless (zerop {}-count) 
+                                                     (error "Unmatched { in program ~S"
+                                                            gs-code-string))))
+                                     (pop tokens))
+                                   processed-tokens)))
+            ((not tokens) 
+             (if (find "}" processed-tokens :test #'string=)
+               (error "Unmatched } in program ~S" gs-code-string)
+               (nreverse processed-tokens))))))))
 
 (defun read-gs-literal (token-string)
   "Read a literal string or integer token into a golfscript type.
@@ -289,11 +315,10 @@
         (gs-integer
           (ecase type
             (gs-array  (make-gs-array-from  (vector value)))
-            (gs-string (make-gs-string-from (map 'simple-vector
-                                                 #'gs-integer<-char
+            (gs-string (make-gs-string-from (map 'simple-vector #'gs-integer<-char
                                             (write-to-string value))))
             (gs-block  (make-gs-block-from (gs-var-value
-                                        (coerce-gs-object object 'gs-string))))))
+                                             (coerce-gs-object object 'gs-string))))))
         (gs-string
           (ecase type
             (gs-block (make-gs-block-from value))))
