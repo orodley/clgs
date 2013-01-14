@@ -7,12 +7,12 @@
   "Main golfscript stack.")
 
 (defun stack-push (object &rest more-objects)
-  "Push all args onto the golfscript stack."
+  "Push all non-null args onto the golfscript stack."
   (declare (list *stack*))
-  (push object *stack*)
+  (unless (null object)
+    (push object *stack*))
   (when more-objects
-    (loop for object in more-objects do
-          (push object *stack*))))
+    (apply #'stack-push more-objects)))
 
 (defun stack-pop  ()
   "Pop the top item off the golfscript stack and return it."
@@ -95,25 +95,17 @@
     (gs-block   4)  
     (gs-string  3)
     (gs-array   2)
-    (gs-integer 1)))
+    (gs-integer 1)
+    (null       0)))
 
 (defun type-of-priority (priority)
   "Return the type mapped to a particular priority"
   (ecase priority
+    (0 'null)
     (1 'gs-integer)
     (2 'gs-array)
     (3 'gs-string)
     (4 'gs-block)))
-
-(defun make-gs-object (object)
-  "Return an appropriate golfscript object containing the value in OBJECT.
-  Lists get converted into GS-ARRAYs. Strings will always get turned into 
-  GS-STRINGs - never blocks"
-  (etypecase object
-    (integer (make-gs-integer-from object))
-    (string  (make-gs-string-from  object))  
-    (vector  (make-gs-array-from   object))
-    (list    (make-gs-array-from   (vector object)))))
 
 (defun make-same-type (gs-object value)
   "Return a new gs-object containing VALUE of the same type as GS-OBJECT"
@@ -193,7 +185,7 @@
   (code-char (gs-var-value gs-int)))
 
 (defun gs-literal-p (token-string)
-  (declare (type string token-string))
+  (declare (string token-string))
   (let ((first-char (char token-string 0)))
     (or (member first-char
                 '(#\' #\" #\{))
@@ -202,7 +194,7 @@
         (digit-char-p first-char))))
 
 (defun gs-comment-p (token-string)
-  (declare (type string token-string))
+  (declare (string token-string))
   (char-equal (char token-string 0) #\#))
 
 (defun truth-value (gs-object)
@@ -222,7 +214,7 @@
 
 (defun pretty-print-stack (stack)
   "Print each item on the stack in its GS-REPR form"
-  (format t "(~{~A~^ ~})"
+  (format t "(~{~A~^ ~})~%"
           (mapcar (lambda (gs-object)
                     (map 'string
                          #'char<-gs-integer
@@ -244,7 +236,7 @@
                  gs-code-string)))
     (let ((tokens (tokenize gs-code-string)))
       (do ((token (pop tokens) (pop tokens)))
-        ((not token))
+        ((null token))
         (cond
           ((gs-comment-p token))
           ((gs-literal-p token)
@@ -308,23 +300,27 @@
 
 (defun coerce-gs-object (object type)
   "Return OBJECT coerced to TYPE. Signal error if invalid coercion"
-  (if (typep object type)
-    object
-    (let ((value (gs-var-value object)))
-      (etypecase object
-        (gs-integer
-          (ecase type
-            (gs-array  (make-gs-array-from  (vector value)))
-            (gs-string (make-gs-string-from (map 'simple-vector #'gs-integer<-char
-                                            (write-to-string value))))
-            (gs-block  (make-gs-block-from (gs-var-value
-                                             (coerce-gs-object object 'gs-string))))))
-        (gs-string
-          (ecase type
-            (gs-block (make-gs-block-from value))))
-        (gs-array
-          (ecase type
-            ;; TODO: This breaks on nested arrays, e.g. [[51 52][53 54]]"55"+
+  (cond
+    ((typep object type) object) 
+    ((null object) nil)
+    ;; When coercing from nil, we have reached the bottom of the stack.
+    ;; This isn't always an error though; let DEFINE-GS-FUNCTION handle it
+    (t
+     (let ((value (gs-var-value object)))
+       (etypecase object
+         (gs-integer
+           (ecase type
+             (gs-array  (make-gs-array-from  (vector value)))
+             (gs-string (make-gs-string-from (map 'simple-vector #'gs-integer<-char
+                                                  (write-to-string value))))
+             (gs-block  (make-gs-block-from (gs-var-value
+                                              (coerce-gs-object object 'gs-string))))))
+         (gs-string
+           (ecase type
+             (gs-block (make-gs-block-from value))))
+         (gs-array
+           (ecase type
+             ;; TODO: This breaks on nested arrays, e.g. [[51 52][53 54]]"55"+
             ;; and non-integer arrays
             (gs-string (make-gs-string-from value))
             (gs-block  (make-gs-block-from 
@@ -339,7 +335,8 @@
                                         (gs-var-value
                                           (coerce-gs-object
                                             item
-                                            'gs-string))))))))))))
+                                            'gs-string))))))))
+        )))))
 
 (defun gs-repr (object)
   "Return the gs-string that returns OBJECT when eval'd in golfscript"

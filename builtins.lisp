@@ -206,32 +206,36 @@
          (sort array-val #'< :key #'gs-var-value))))))
 
 (define-gs-function (+ :coerce 2) 
-  ((gs-integer)
+  ((gs-integer gs-integer)
    ;; Add
    (pop-into (a b)
      (stack-push (make-gs-integer-from
                    (+ b-val a-val)))))
-  ((gs-block)
+  ((gs-block gs-block)
+   ;; Concatenate with space
    (pop-into (a b)
-     ;; Concatenate with space
      (stack-push (make-same-type
                    a
                    (concatenate 'simple-vector
                                 b-val
                                 (vector (gs-integer<-char #\Space))
                                 a-val)))))
-  ((gs-array)
+  ((gs-array gs-array)
+   ;; Concatenate without space
    (pop-into (a b)
-     ;; Concatenate without space
-     (stack-push (make-same-type a (concatenate 'simple-vector b-val a-val))))))
+     (stack-push (make-same-type a (concatenate 'simple-vector b-val a-val)))))
+  ((gs-array)
+   ;; Convert to string
+   (pop-into (array)
+     (stack-push (make-gs-string-from array-val)))))
 
 (define-gs-function (- :coerce 2)
-  ((gs-integer)
+  ((gs-integer gs-integer)
    ;; Subtraction
    (pop-into (a b)
      (stack-push (make-gs-integer-from
                    (- b-val a-val)))))
-  ((gs-array)
+  ((gs-array gs-array)
    ;; Array difference
    (pop-into (a b)
      (stack-push (make-gs-array-from
@@ -389,13 +393,13 @@
                   (t (error "Zero slice value supplied to %")))))))))
 
 (define-gs-function (|\|| :coerce 2)
-  ((gs-integer)
+  ((gs-integer gs-integer)
   ;; Bitwise OR
   (pop-into (a b)
     (stack-push
       (make-gs-integer-from
         (logior b-val a-val)))))
-  ((gs-array)
+  ((gs-array gs-array)
    ;; Set union
    ;; UNION can't be used, as order is undefined
    (pop-into (array2 array1)
@@ -410,13 +414,13 @@
                             collect item)))))))
 
 (define-gs-function (& :coerce 2)
-  ((gs-integer)
+  ((gs-integer gs-integer)
    ;; Bitwise AND
    (pop-into (a b)
      (stack-push
        (make-gs-integer-from
          (logand b-val a-val)))))
-  ((gs-array)
+  ((gs-array gs-integer)
    ;; Set intersection
    ;; INTERSECTION can't be used, as order is undefined
    (pop-into (array1 array2)
@@ -430,13 +434,13 @@
                       collect item)))))))
 
 (define-gs-function (^ :coerce 2)
-  ((gs-integer)
+  ((gs-integer gs-integer)
    ;; Bitwise XOR
    (pop-into (a b)
      (stack-push
        (make-gs-integer-from
          (logxor b-val a-val)))))
-  ((gs-array)
+  ((gs-array gs-array)
    ;; Set difference
    ;; SET-DIFFERENCE can't be used, as order is undefined
    (pop-into (array1 array2)
