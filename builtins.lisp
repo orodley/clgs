@@ -6,6 +6,35 @@
 (defvar *builtins* (make-hash-table)
   "Holds all builtin functions and variables")
 
+(defun pop-into-expansion (arg-case)
+  "Generate the expansion for the POP-INTO macro; pop the top values of the
+   stack into the vars in the var list in order, bind their GS-VAR-VALUEs to
+   <VAR>-VAL for each <VAR> in the var list, then execute the body."
+  ;; TODO: Remove unused bindings to avoid
+  ;; annoying "defined but never used" warnings
+  ;; Or maybe just (DECLARE (IGNORABLE ...)) them?
+  (let ((var-list (cadadr arg-case))
+        (body     (cddadr arg-case)))
+    (declare (type list var-list body))
+    `(let* ,(append
+             (mapcar (lambda (var) `(,var (stack-pop)))
+                     var-list)
+             (mapcar (lambda (var) `(,(intern (format nil "~S-VAL" var))
+                                      (gs-var-value ,var)))
+                     var-list))
+       ,@(loop for var  in var-list
+               for type in (car arg-case)
+               collecting `(declare (type ,type ,var)))
+       ,@(loop for var  in var-list
+               for type in (car arg-case)
+               collecting
+               `(declare (type ,(case type
+                                  (gs-integer 'integer)
+                                  ((t)        't)
+                                  (otherwise  'simple-vector))
+                               ,(intern (format nil "~S-VAL" var)))))
+       ,@body)))
+
 (defmacro define-gs-function ((name &key (coerce 0) (require 0))
                               &body arg-cases)
   "Define a builtin function and insert it into *builtins*.  Each case defines
@@ -54,35 +83,6 @@
                  match any expected cases:~%~S"
                  ',name ',(mapcar #'car arg-cases)))))
            *builtins*))
-
-(defun pop-into-expansion (arg-case)
-  "Generate the expansion for the POP-INTO macro; pop the top values of the
-   stack into the vars in the var list in order, bind their GS-VAR-VALUEs to
-   <VAR>-VAL for each <VAR> in the var list, then execute the body."
-  ;; TODO: Remove unused bindings to avoid
-  ;; annoying "defined but never used" warnings
-  ;; Or maybe just (DECLARE (IGNORABLE ...)) them?
-  (let ((var-list (cadadr arg-case))
-        (body     (cddadr arg-case)))
-    (declare (type list var-list body))
-    `(let* ,(append
-             (mapcar (lambda (var) `(,var (stack-pop)))
-                     var-list)
-             (mapcar (lambda (var) `(,(intern (format nil "~S-VAL" var))
-                                      (gs-var-value ,var)))
-                     var-list))
-       ,@(loop for var  in var-list
-               for type in (car arg-case)
-               collecting `(declare (type ,type ,var)))
-       ,@(loop for var  in var-list
-               for type in (car arg-case)
-               collecting
-               `(declare (type ,(case type
-                                  (gs-integer 'integer)
-                                  ((t)        't)
-                                  (otherwise  'simple-vector))
-                               ,(intern (format nil "~S-VAL" var)))))
-       ,@body)))
 
 (defun call-gs-fun (fun-symbol)
   "Call the function denoted by FUN-SYMBOL"
