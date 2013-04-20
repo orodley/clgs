@@ -2,12 +2,12 @@
 (in-package :clgs)
 
 ;;; Stack & related functions
+(declaim (list *stack*))
 (defvar *stack* ()
   "Main golfscript stack.")
 
 (defun stack-push (object &rest more-objects)
   "Push all non-null args onto the golfscript stack."
-  (declare (list *stack*))
   (unless (null object)
     (push object *stack*))
   (when more-objects
@@ -15,25 +15,20 @@
 
 (defun stack-pop  ()
   "Pop the top item off the golfscript stack and return it."
-  (declare (list *stack*))
   (pop *stack*))
 
 (defun stack-peek (&optional (depth 1))
   "Return the first DEPTH elements from the top of the golfscript
   stack, without modifiying it."
-  (declare (list *stack*))
   (subseq *stack* 0 depth))
 
 (defun stack-elt (index)
   "Return the element at position INDEX in the stack"
-  (declare (list *stack*))
   (elt *stack* index))
 
 (defun set-stack (stack-values)
   "Remove all current stack values and set stack to the values in STACK-VALUES"
-  (declare (list *stack*))
-  (declare (list stack-values))
-  (setf *stack* stack-values))
+  (setf *stack* (the list stack-values)))
 
 ;;; Variable table & related functions
 (defvar *variable-table* (make-hash-table)
