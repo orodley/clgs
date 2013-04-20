@@ -2,7 +2,6 @@
   :description "Common Lisp Golfscript interpreter"
   :depends-on (:cl-ppcre)
   :components ((:file "package")
-               (:file "clgs"
-                :depends-on ("package"))
-               (:file "builtins"
-                :depends-on ("clgs"))))
+               (:file "clgs"      :depends-on ("package"))
+               (:file "builtins"  :depends-on ("clgs" "package"))
+               (:file "run-tests" :depends-on ("clgs" "builtins" "package"))))
