@@ -102,7 +102,6 @@
     (gs-integer (make-gs-integer-from value))))
 
 ;;; Parsing
-
 (defvar *tokenize-cache* (make-hash-table :test #'equal)
   "Holds tokenized strings to improve performance when executing a block
   many times")
@@ -116,8 +115,13 @@
           ((tokens 
              (cl-ppcre:all-matches-as-strings
                ;; TODO: Doesn't tokenize strings with escaped quotes correctly
-               ;; ---variable name---------'string'---------"string"-------integer-----comment--single character token
-               "[a-zA-Z_][a-zA-Z0-9_]*|'(?:\\.|[^'])*'?|\"(?:\\.|[^\"])*\"?|-?[0-9]+|#[^\\n\\r]*|[^ ]"
+               "(?x)                    # Enable optional whitespace & comments
+                [a-zA-Z_][a-zA-Z0-9_]*| # variable name
+                '(?:\\.|[^'])*'?|       # single quoted string
+                \"(?:\\.|[^\"])*\"?|    # double quoted string
+                -?[0-9]+|               # integer
+                [#][^\\n\\r]*|          # comment
+                [^ ]                    # single character token"
                gs-code-string)))
           (do ((processed-tokens ()
                                  (cons
