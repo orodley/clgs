@@ -1,6 +1,5 @@
 ;;;; Golfscript interpreter
-
-(ql:quickload 'cl-ppcre)
+(in-package :clgs)
 
 ;;; Stack & related functions
 (defvar *stack* ()
@@ -53,7 +52,7 @@
   indicates whether NAME was found"
   (declare (symbol name))
   (declare (hash-table table))
-  (the function (gethash name table)))
+  (the (or function null) (gethash name table)))
 
 (defun clear-var-table (table)
   "Removes all values from TABLE"
@@ -335,8 +334,7 @@
                                         (gs-var-value
                                           (coerce-gs-object
                                             item
-                                            'gs-string))))))))
-        )))))
+                                            'gs-string)))))))))))))
 
 (defun gs-repr (object)
   "Return the gs-string that returns OBJECT when eval'd in golfscript"
@@ -368,5 +366,3 @@
           (gs-integer
             (map 'simple-vector #'gs-integer<-char
                  (write-to-string value))))))))
-
-(load "builtins.lisp")

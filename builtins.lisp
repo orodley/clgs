@@ -1,3 +1,5 @@
+(in-package :clgs)
+
 (defvar *stack-mark* ()
   "The [ function uses this to mark stack size, and ] slices back to it")
 
@@ -29,7 +31,6 @@
      ',name
      (lambda ()
        (declare (type list *stack*))
-       (declare (optimize (speed 2)))
        ;; Coerce args if necessary
        ,(when (plusp coerce)
           `(loop for coerced-arg in 
@@ -58,6 +59,7 @@
                   VAR-LIST, then execute body."
                   ;; TODO: Remove unused bindings to avoid
                   ;; annoying "defined but never used" warnings
+                  ;; Or maybe just (DECLARE (IGNORABLE ...)) them?
                   (declare (type list var-list body))
                   `(let* ,(append
                            (mapcar (lambda (var)
@@ -411,7 +413,7 @@
                       (loop for item across
                             (remove-duplicates array2-val :test #'equalp)
                             unless (find item array1-val :test #'equalp)
-                            collect item)))))))
+                              collect item)))))))
 
 (define-gs-function (& :coerce 2)
   ((gs-integer gs-integer)
@@ -420,7 +422,7 @@
      (stack-push
        (make-gs-integer-from
          (logand b-val a-val)))))
-  ((gs-array gs-integer)
+  ((gs-array gs-array)
    ;; Set intersection
    ;; INTERSECTION can't be used, as order is undefined
    (pop-into (array1 array2)
@@ -431,7 +433,7 @@
                 (loop for item across
                       (remove-duplicates array1-val :test #'equalp)
                       when (find item array2-val :test #'equalp)
-                      collect item)))))))
+                        collect item)))))))
 
 (define-gs-function (^ :coerce 2)
   ((gs-integer gs-integer)
