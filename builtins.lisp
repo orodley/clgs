@@ -1,8 +1,5 @@
 (in-package :clgs)
 
-(defvar *stack-mark* ()
-  "The [ function uses this to mark stack size, and ] slices back to it")
-
 (defvar *builtins* (make-hash-table)
   "Holds all builtin functions and variables")
 

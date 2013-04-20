@@ -13,8 +13,15 @@
   (unless (endp more-objects)
     (apply #'stack-push more-objects)))
 
+(defvar *stack-mark* ()
+  "The [ function uses this to mark stack size, and ] slices back to it")
+
 (defun stack-pop  ()
   "Pop the top item off the golfscript stack and return it."
+  (loop for cons on *stack-mark*
+    when (< (car cons) (length *stack*))
+      return ()
+    do (decf (car cons)))
   (pop *stack*))
 
 (defun stack-peek (&optional (depth 1))
