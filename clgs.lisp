@@ -37,21 +37,16 @@
 
 (defun add-to-var-table (name value table)
   "Add VALUE to TABLE under key NAME"
-  (declare (symbol name))
-  (declare (function value))
-  (declare (hash-table table))
-  (setf (gethash name table) value))
+  (setf (gethash (the symbol name) table)
+        (the function value)))
 
 (defun get-from-var-table (name table)
   "Retrieve the entry in TABLE stored under NAME. Secondary return value
   indicates whether NAME was found"
-  (declare (symbol name))
-  (declare (hash-table table))
-  (the (or function null) (gethash name table)))
+  (the (or function null) (gethash (the symbol name) table)))
 
 (defun clear-var-table (table)
   "Removes all values from TABLE"
-  (declare (hash-table table))
   (clrhash table))
 
 (defun reset-var-table ()
@@ -83,23 +78,20 @@
   (declare (type (or gs-integer gs-array) gs-var))
   (slot-value gs-var 'value))
 
+(defvar *priority-alist*
+  '((gs-block   . 4)
+    (gs-string  . 3)
+    (gs-array   . 2)
+    (gs-integer . 1)
+    (null       . 0)))
+
 (defun priority (object)
   "Return coercion priority for OBJECT (higher values take precedence)"
-  (etypecase object
-    (gs-block   4)  
-    (gs-string  3)
-    (gs-array   2)
-    (gs-integer 1)
-    (null       0)))
+  (cdr (assoc (type-of object) *priority-alist*)))
 
 (defun type-of-priority (priority)
   "Return the type mapped to a particular priority"
-  (ecase priority
-    (0 'null)
-    (1 'gs-integer)
-    (2 'gs-array)
-    (3 'gs-string)
-    (4 'gs-block)))
+  (car (rassoc priority *priority-alist*)))
 
 (defun make-same-type (gs-object value)
   "Return a new gs-object containing VALUE of the same type as GS-OBJECT"
