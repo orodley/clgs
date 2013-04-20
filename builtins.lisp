@@ -6,8 +6,6 @@
 (defvar *builtins* (make-hash-table)
   "Holds all builtin functions and variables")
 
-;;; TODO: This macro is getting really long and messy
-;;; maybe delegate some of the expansion to helper functions?
 (defmacro define-gs-function ((name &key (coerce 0) (require 0)) &body arg-cases)
   "Define a builtin function and insert it into *builtins*.
   Each case defines a different function to perform depending
@@ -19,11 +17,7 @@
   ;; Check for invalid types in ARG-CASES
   (dolist (arg-case arg-cases)
     (dolist (type (car arg-case))
-      (unless (member type '(gs-integer
-                             gs-array
-                             gs-string
-                             gs-block
-                             t))
+      (unless (member type '(gs-integer gs-array gs-string gs-block t))
         (error "In definition of golfscript function \"~S\": ~S is not ~
                a valid golfscript type"
                name type))))
@@ -50,53 +44,15 @@
        ,@(mapcar
            (lambda (arg-case)
              (declare (type list arg-case))
-             (flet 
-               ((pop-into-expansion (var-list body)
-                  "Generates the macroexpansion for the POP-INTO
-                  macro; pop the top values of the stack into the
-                  variables in VAR-LIST in order, and bind their
-                  GS-VAR-VALUEs to <VAR>-VAL for each <VAR> in
-                  VAR-LIST, then execute body."
-                  ;; TODO: Remove unused bindings to avoid
-                  ;; annoying "defined but never used" warnings
-                  ;; Or maybe just (DECLARE (IGNORABLE ...)) them?
-                  (declare (type list var-list body))
-                  `(let* ,(append
-                           (mapcar (lambda (var)
-                                     (declare (type symbol var))
-                                     `(,var (stack-pop)))
-                                   var-list)
-                           (mapcar (lambda (var)
-                                     (declare (type symbol var))
-                                     `(,(intern (concatenate 'string
-                                                             (string var)
-                                                             "-VAL"))
-                                        (gs-var-value ,var)))
-                                   var-list))
-                     ,@(loop for var  in var-list
-                             for type in (car arg-case)
-                             collecting `(declare (type ,type ,var)))
-                     ,@(loop for var  in var-list
-                             for type in (car arg-case)
-                             collecting
-                             `(declare (type ,(case type
-                                                (gs-integer 'integer)
-                                                ((t)        't)
-                                                (otherwise  'simple-vector))
-                                             ,(intern (concatenate 'string
-                                                                   (string var)
-                                                                   "-VAL")))))
-                     ,@body)))
-               `(,(if (equal (car arg-case) '(t))
-                    t
-                    `(and (>= (length *stack*) ,(length (car arg-case)))
-                          (every #'typep 
-                                 (the list 
-                                      (stack-peek ,(length (car arg-case)))) 
-                                 ',(car arg-case)))) 
-                  ,@(if (eq (caadr arg-case) 'pop-into)
-                      `(,(pop-into-expansion (cadadr arg-case) (cddadr arg-case)))
-                      (cdr arg-case))))) 
+             `(,(if (equal (car arg-case) '(t))
+                  t
+                  `(and (>= (length *stack*) ,(length (car arg-case)))
+                        (every #'typep 
+                               (the list (stack-peek ,(length (car arg-case)))) 
+                               ',(car arg-case)))) 
+                ,@(if (eq (caadr arg-case) 'pop-into)
+                    `(,(pop-into-expansion (cadadr arg-case) arg-case (cddadr arg-case)))
+                    (cdr arg-case)))) 
            arg-cases)
        ;; Fallen through all possible combinations: invalid function call
        (t (error "~S called with invalid argument types; didn't ~
@@ -104,6 +60,43 @@
                  (quote ,name)
                  (quote ,(mapcar #'car arg-cases))))))
            *builtins*))
+
+(defun pop-into-expansion (var-list arg-case body)
+  "Generates the macroexpansion for the POP-INTO
+   macro; pop the top values of the stack into the
+   variables in VAR-LIST in order, and bind their
+   GS-VAR-VALUEs to <VAR>-VAL for each <VAR> in
+   VAR-LIST, then execute body."
+  ;; TODO: Remove unused bindings to avoid
+  ;; annoying "defined but never used" warnings
+  ;; Or maybe just (DECLARE (IGNORABLE ...)) them?
+  (declare (type list var-list body))
+  `(let* ,(append
+           (mapcar (lambda (var)
+                     (declare (type symbol var))
+                     `(,var (stack-pop)))
+                   var-list)
+           (mapcar (lambda (var)
+                     (declare (type symbol var))
+                     `(,(intern (concatenate 'string
+                                             (string var)
+                                             "-VAL"))
+                        (gs-var-value ,var)))
+                   var-list))
+     ,@(loop for var  in var-list
+             for type in (car arg-case)
+             collecting `(declare (type ,type ,var)))
+     ,@(loop for var  in var-list
+             for type in (car arg-case)
+             collecting
+             `(declare (type ,(case type
+                                (gs-integer 'integer)
+                                ((t)        't)
+                                (otherwise  'simple-vector))
+                             ,(intern (concatenate 'string
+                                                   (string var)
+                                                   "-VAL")))))
+     ,@body))
 
 (defun call-gs-fun (fun-symbol)
   "Call the function denoted by FUN-SYMBOL"
