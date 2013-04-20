@@ -123,26 +123,22 @@
                 [#][^\\n\\r]*|          # comment
                 [^ ]                    # single character token"
                gs-code-string)))
-          (do ((processed-tokens ()
-                                 (cons
-                                   (if (string= (car tokens) "{")
-                                     (reduce (lambda (a b)
-                                               (concatenate 'string a b))
-                                             (loop for token = (pop tokens)
-                                                   with {}-count = 0
-                                                   collecting token 
-                                                   when (string= token "{")
-                                                     do (incf {}-count)
-                                                   when (string= token "}")
-                                                     do (decf {}-count)
-                                                   until (or (zerop {}-count)
-                                                             (null tokens))
-                                                   finally
-                                                   (unless (zerop {}-count) 
-                                                     (error "Unmatched { in program ~S"
-                                                            gs-code-string))))
-                                     (pop tokens))
-                                   processed-tokens)))
+          (do ((processed-tokens 
+                 ()
+                 (cons
+                   (if (string= (car tokens) "{")
+                     (reduce (lambda (a b) (concatenate 'string a b))
+                             (loop for token = (pop tokens)
+                                   with {}-count = 0
+                                   collecting token 
+                                   when (string= token "{") do (incf {}-count)
+                                   when (string= token "}") do (decf {}-count)
+                                   until (or (zerop {}-count) (endp tokens))
+                                   finally (unless (zerop {}-count) 
+                                             (error "Unmatched { in program ~S"
+                                                    gs-code-string))))
+                     (pop tokens))
+                   processed-tokens)))
             ((not tokens) 
              (if (find "}" processed-tokens :test #'string=)
                (error "Unmatched } in program ~S" gs-code-string)
@@ -175,7 +171,6 @@
   (code-char (gs-var-value gs-int)))
 
 (defun gs-literal-p (token-string)
-  (declare (string token-string))
   (let ((first-char (char token-string 0)))
     (or (member first-char
                 '(#\' #\" #\{))
@@ -184,7 +179,6 @@
         (digit-char-p first-char))))
 
 (defun gs-comment-p (token-string)
-  (declare (string token-string))
   (char-equal (char token-string 0) #\#))
 
 (defun truth-value (gs-object)
@@ -206,10 +200,8 @@
   "Print each item on the stack in its GS-REPR form"
   (format t "(~{~A~^ ~})~%"
           (mapcar (lambda (gs-object)
-                    (map 'string
-                         #'char<-gs-integer
-                         (gs-var-value
-                           (gs-repr gs-object))))
+                    (map 'string #'char<-gs-integer
+                         (gs-var-value (gs-repr gs-object))))
                   (reverse stack))))
 
 (defun execute-gs-string (gs-code-string)
@@ -231,7 +223,7 @@
           ((gs-comment-p token))
           ((gs-literal-p token)
            (stack-push (read-gs-literal token)))
-          ;; OPTIMIZATION: Loads of duplication here
+          ;; OPTIMIZATION: Performs GETHASH twice 
           ((get-from-var-table (intern token) *variable-table*)
            (call-gs-fun (intern token)))
           ((string= token ":")
@@ -241,8 +233,7 @@
              (add-to-var-table (intern (pop tokens))
                                (if (gs-block-p var-value)
                                  (lambda ()
-                                   (execute-gs-string 
-                                     (gs-var-value var-value)))
+                                   (execute-gs-string (gs-var-value var-value)))
                                  (lambda () (stack-push var-value)))
                                *variable-table*)))
           (t (error "Unrecognized token ~S" token)))))))
@@ -282,8 +273,7 @@
   "Given a list of arguments, coerce all to highest priority type"
   (let ((highest-priority-type
           (type-of-priority
-            (apply #'max
-                   (mapcar #'priority args)))))
+            (apply #'max (mapcar #'priority args)))))
     (mapcar (lambda (arg)
               (coerce-gs-object arg highest-priority-type))
             args)))
@@ -301,10 +291,12 @@
          (gs-integer
            (ecase type
              (gs-array  (make-gs-array-from  (vector value)))
-             (gs-string (make-gs-string-from (map 'simple-vector #'gs-integer<-char
+             (gs-string (make-gs-string-from (map 'simple-vector 
+                                                  #'gs-integer<-char
                                                   (write-to-string value))))
              (gs-block  (make-gs-block-from (gs-var-value
-                                              (coerce-gs-object object 'gs-string))))))
+                                              (coerce-gs-object object
+                                                                'gs-string))))))
          (gs-string
            (ecase type
              (gs-block (make-gs-block-from value))))
@@ -322,15 +314,14 @@
                                      b))
                                  value
                                  :key (lambda (item)
-                                        (gs-var-value
-                                          (coerce-gs-object
-                                            item
-                                            'gs-string)))))))))))))
+                                        (gs-var-value (coerce-gs-object
+                                                        item
+                                                        'gs-string)))))))))))))
 
 (defun gs-repr (object)
   "Return the gs-string that returns OBJECT when eval'd in golfscript"
   (let ((value (gs-var-value object)))
-    (flet ((surround (start-character value end-character)
+    (flet ((vector-concat (start-character value end-character)
              (concatenate 'simple-vector
                       (vector (gs-integer<-char start-character))
                       value
@@ -338,11 +329,11 @@
       (make-gs-string-from
         (etypecase object
           (gs-block
-            (surround #\{ value #\}))
+            (vector-concat #\{ value #\}))
           (gs-string
-            (surround #\' value #\'))
+            (vector-concat #\' value #\'))
           (gs-array
-            (surround #\[
+            (vector-concat #\[
                       (if (zerop (length value))
                         #()
                         (reduce (lambda (a b)
@@ -351,7 +342,8 @@
                                              (vector (gs-integer<-char #\Space))
                                              (gs-var-value (gs-repr b))))
                               value
-                              :initial-value (gs-var-value (gs-repr (elt value 0)))
+                              :initial-value (gs-var-value 
+                                               (gs-repr (elt value 0)))
                               :start 1))
                       #\]))
           (gs-integer
