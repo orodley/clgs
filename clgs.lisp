@@ -10,7 +10,7 @@
   "Push all non-null args onto the golfscript stack."
   (unless (null object)
     (push object *stack*))
-  (when more-objects
+  (unless (endp more-objects)
     (apply #'stack-push more-objects)))
 
 (defun stack-pop  ()
