@@ -59,7 +59,13 @@
           (gs-block
             (vector-concat #\{ value #\}))
           (gs-string
-            (vector-concat #\' value #\'))
+            (let ((escaped-quotes
+                    (apply #'vector
+                      (loop for gs-int across value
+                            when (= (gs-var-value gs-int)   #.(char-code #\'))
+                              collect (make-gs-integer-from #.(char-code #\\))
+                            collect gs-int))))
+              (vector-concat #\' escaped-quotes #\')))
           (gs-array
             (vector-concat #\[
                       (if (zerop (length value))
