@@ -75,7 +75,15 @@
                 \"(?:\\.|[^\"])*\"?|    # double quoted string
                 -?[0-9]+|               # integer
                 [#][^\\n\\r]*|          # comment
+                [ ]+|                   # whitespace
                 [^ ]                    # single character token"
+               ;; whitespace is kept here, as otherwise the following happens
+               ;; when tokenizing blocks, for example {1 2+}:
+               ;; regex splits it into ("{" "1" "2" "+" "}")
+               ;; the following DO loop concatenates them into one block token:
+               ;; "{12+}", and the semantics of the block are changed.
+               ;; So, instead we keep whitespace here, and then filter it out
+               ;; after processing blocks
                gs-code-string)))
           (do ((processed-tokens 
                  ()
@@ -96,7 +104,9 @@
             ((not tokens) 
              (if (find "}" processed-tokens :test #'string=)
                (error "Unmatched } in program ~S" gs-code-string)
-               (nreverse processed-tokens))))))))
+               (remove-if (lambda (token)
+                            (every (lambda (char) (char= char #\Space)) token))
+                          (nreverse processed-tokens)))))))))
 
 (defun read-gs-literal (token-string)
   "Read a literal string or integer token into a golfscript type.
